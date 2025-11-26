@@ -1,6 +1,11 @@
 // src/aiClient.ts
 import OpenAI from "openai";
 
+
+if (!process.env.OPENAI_API_KEY) {
+  console.warn("Missing OPENAI_API_KEY in backend environment");
+}
+
 export const openai = new OpenAI({
-  apiKey: "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",
+  apiKey: process.env.OPENAI_API_KEY,
 });
