@@ -18,6 +18,47 @@ type EvaluateResponseBody = {
   explanation: string;
 };
 
+// POST route to send a simple message to the OpenAI model
+chatRouter.post(
+  "/hello",
+  async (req, res) => {
+    // 1. Get the user's message from the request body
+    const { userMessage } = req.body; 
+
+    // 2. Basic input validation
+    if (!userMessage) {
+      return res.status(400).json({ error: "Missing required field: userMessage" });
+    }
+
+    try {
+
+      // 4. Call the OpenAI API
+      const response = await openai.responses.create({
+        model: "gpt-4o-mini", // A cost-effective model for simple tasks
+        input: [
+            { role: "system", content: "You are a friendly and concise greeter. Respond in one sentence." },
+            { role: "user", content: userMessage },
+        ],
+      });
+
+      // 5. Extract the AI's response text
+      // The response structure for chat completions uses choices[0].message.content
+      const aiResponse = response.output_text;
+
+      // 6. Send the AI's response back to the client
+      return res.json({ 
+        message: "Request processed successfully.",
+        aiReply: aiResponse 
+      });
+
+    } catch (err) {
+      // 7. Handle API errors (including 429 quota errors)
+      console.error("Error in /hello endpoint:", err);
+      // Check for status and return a user-friendly error
+    }
+  }
+);
+
 chatRouter.post(
   "/evaluate",
   async (req, res) => {
