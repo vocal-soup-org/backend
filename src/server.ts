@@ -3,6 +3,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { requireUser, AuthedRequest } from "./authMiddleware";
+import { chatRouter } from "./chatRouter";
+import { storyRouter } from "./storyRouter";
 
 dotenv.config();
 
@@ -30,6 +32,8 @@ app.get("/me", requireUser, (req: AuthedRequest, res) => {
   });
 });
 
+app.use("/chat", chatRouter);
+app.use("/story", storyRouter);
 // Later: add your game routes here, all protected by requireUser
 
 app.listen(PORT, () => {
