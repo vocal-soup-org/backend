@@ -31,33 +31,29 @@ chatRouter.post(
     try {
       // Prompt design: strict grader, JSON only
       const systemPrompt = `
-You are grading answers to lateral thinking puzzles.
-You will be given:
-- the puzzle text
-- the intended solution
-- a player's answer
+现在我们要玩海龟汤，我会给你提供三个东西：
+1. 汤面
+2. 汤底
+3. 玩家的猜测
 
 Rules:
 - Respond ONLY with a JSON object.
 - JSON format:
   {
-    "result": "yes" | "no" | "not_sure"
+    "result": "yes" | "no" | "not_sure" | "not_related"
   }
-- "yes" (OBJECTIVELY CORRECT): The player's answer is factually correct based on the Intended Solution.
-- "no" (OBJECTIVELY INCORRECT): The player's answer is factually not right based on the Intended Solution.
-- "not_sure" (NOT RELATED): The player's answer addresses a topic or fact that is outside the defined scope of the Intended Solution
+
 `;
 
-      const userPrompt = `
-Puzzle ID: ${puzzleId}
+const userPrompt = `
 
-Puzzle:
+汤面:
 ${puzzlePrompt}
 
-Intended solution or key idea:
+汤底:
 ${answerKey}
 
-Player's answer:
+玩家的猜测:
 ${userAnswer}
 
 Now grade the answer strictly following the JSON format.
@@ -85,7 +81,8 @@ Now grade the answer strictly following the JSON format.
       if (
         parsed.result !== "yes" &&
         parsed.result !== "no" &&
-        parsed.result !== "not_sure"
+        parsed.result !== "not_sure" &&
+        parsed.result !== "not_related"
       ) {
         return res
           .status(500)
