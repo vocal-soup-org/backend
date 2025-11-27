@@ -43,9 +43,9 @@ Rules:
   {
     "result": "yes" | "no" | "not_sure"
   }
-- "yes" (OBJECTIVELY CORRECT): The player's answer is factually correct based on the provided puzzle text and the Intended Solution.
-- "no" (OBJECTIVELY INCORRECT): The player's answer is factually not right about the information provided in the puzzle text or the Intended Solution.
-- "irrelevant" (NOT RELATED): The player's answer addresses a topic or fact that is outside the defined scope of the puzzle and the Intended Solution, or asks a question about the future/analysis.
+- "yes" (OBJECTIVELY CORRECT): The player's answer is factually correct based on the Intended Solution.
+- "no" (OBJECTIVELY INCORRECT): The player's answer is factually not right based on the Intended Solution.
+- "not_sure" (NOT RELATED): The player's answer addresses a topic or fact that is outside the defined scope of the Intended Solution
 `;
 
       const userPrompt = `
