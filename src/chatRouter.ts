@@ -43,8 +43,8 @@ Rules:
   {
     "result": "yes" | "no" | "not_sure"
   }
-- "yes" (OBJECTIVELY CORRECT): The player's answer is 100% factually accurate based on the provided puzzle text and the Intended Solution.
-- "no" (OBJECTIVELY INCORRECT): The player's answer is factually false or directly contradicted by the information provided in the puzzle text or the Intended Solution.
+- "yes" (OBJECTIVELY CORRECT): The player's answer is factually correct based on the provided puzzle text and the Intended Solution.
+- "no" (OBJECTIVELY INCORRECT): The player's answer is factually not right about the information provided in the puzzle text or the Intended Solution.
 - "irrelevant" (NOT RELATED): The player's answer addresses a topic or fact that is outside the defined scope of the puzzle and the Intended Solution, or asks a question about the future/analysis.
 `;
 
@@ -64,11 +64,12 @@ Now grade the answer strictly following the JSON format.
 `;
 
       const response = await openai.responses.create({
-        model: "gpt-5-nano",
+        model: "gpt-4.1-mini",
         input: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        temperature: 0.2,
       });
 
       const text = response.output_text;
