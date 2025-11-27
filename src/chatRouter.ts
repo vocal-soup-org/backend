@@ -64,7 +64,7 @@ Now grade the answer strictly following the JSON format.
 `;
 
       const response = await openai.responses.create({
-        model: "gpt-5.0-nano",
+        model: "gpt-5.1-nano",
         input: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
