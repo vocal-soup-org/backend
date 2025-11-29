@@ -1,6 +1,7 @@
 // src/chatRoutes.ts
 import { Router } from "express";
 import { openai } from "./aiClient";
+import { ChatService } from "./Service/chatService";
 
 export const chatRouter = Router();
 
@@ -21,9 +22,10 @@ type EvaluateResponseBody = {
 chatRouter.post(
   "/evaluate",
   async (req, res) => {
-    const { puzzleId, puzzlePrompt, answerKey, userAnswer } =
+    const { puzzleId, userAnswer } =
       req.body as EvaluateRequestBody;
-
+    const chatService = ChatService.getInstance();
+    const puzzle = chatService.getPuzzle();
     if (!puzzleId || !puzzlePrompt || !answerKey || !userAnswer) {
       return res.status(400).json({ error: "Missing required fields" });
     }

@@ -1,22 +1,18 @@
-import {Puzzle} from "../Schema/Puzzle"
+import { Puzzle } from "../Schema/Puzzle";
+import { getPuzzleFromDB } from "./puzzleService";
 
-  // TODO: get Puzzle from DB
-export function getPuzzle(id: string): Puzzle | null {
-  return null;
-}
+
 
 export interface StorySession {
   id: string;
   userId?: string;
-  puzzleId: string;             // <- tie to exactly one puzzle
+  puzzleId: string; // one puzzle per session
 }
-
-
 
 export class StoryService {
   private static _instance: StoryService | null = null;
 
-  // The single puzzle for this session
+  // The single puzzle + session for this runtime
   private m_puzzle: Puzzle | null = null;
   private m_session: StorySession | null = null;
 
@@ -30,7 +26,51 @@ export class StoryService {
     return this._instance;
   }
 
-  /** Initialize or replace the puzzle for this session */
+  /**
+   * High-level entry point:
+   * Create a story session AND load the puzzle it’s tied to.
+   */
+  public createStorySession(params: {
+    id: string;
+    puzzleId: string;
+  }): StorySession {
+    const { id, puzzleId } = params;
+
+    const puzzle = this.loadPuzzle(puzzleId);
+    const session: StorySession = {
+      id,
+      puzzleId,
+    };
+
+    this.m_session = session;
+    this.m_puzzle = puzzle;
+
+    return session;
+  }
+
+  /** Get the current story session (or null if not set yet) */
+  public getStorySession(): StorySession | null {
+    return this.m_session;
+  }
+
+  /** Require a session to exist (throws otherwise) */
+  public requireStorySession(): StorySession {
+    if (!this.m_session) {
+      throw new Error("StoryService: story session not initialized");
+    }
+    return this.m_session;
+  }
+
+  /** Update the current story session in place */
+  public updateStorySession(
+    updater: (session: StorySession) => void
+  ): StorySession | null {
+    if (!this.m_session) return null;
+    updater(this.m_session);
+    return this.m_session;
+  }
+
+  /** Initialize or replace the puzzle for this session directly */
   public setPuzzle(puzzle: Puzzle): void {
     this.m_puzzle = puzzle;
   }
@@ -47,9 +87,19 @@ export class StoryService {
     this.m_puzzle = { ...data };
   }
 
-  private fetchPuzzleData(puzzleId: String): void {
-    // TODO: DB connection
-    // initializePuzzle();
+  /** Internal: load puzzle from DB/store by ID and set it */
+  private loadPuzzle(puzzleId: string): Puzzle {
+    getPuzzleFromDB(puzzleId)
+    .then((puzzle: Puzzle | null) => {
+      if (puzzle) {
+        return puzzle;
+      }
+    })
+    .catch(error => {
+      console.error("An error occurred:", error);
+    });
+
+    throw Error;
   }
 
   /** Get the current puzzle (or null if not set yet) */
@@ -57,51 +107,17 @@ export class StoryService {
     return this.m_puzzle;
   }
 
-  /** Optional: throw if you expect a puzzle to always exist */
+  /** Throw if you expect a puzzle to always exist */
   public requirePuzzle(): Puzzle {
     if (!this.m_puzzle) {
-      throw new Error("SessionService: puzzle not initialized");
+      throw new Error("StoryService: puzzle not initialized");
     }
     return this.m_puzzle;
   }
 
-  
-
-public createStorySession(params: {
-  id: string;
-  puzzleId: string;
-}): StorySession {
-  const { id, puzzleId } = params;
-
-  const session: StorySession = {
-    id,
-    puzzleId,
-  };
-  this.fetchPuzzleData(puzzleId);
-  return session;
-}
-
-
-public getStorySession(id: string): StorySession | null {
-  return this.m_session;
-}
-
-public updateStorySession(
-  id: string,
-  updater: (session: StorySession) => void
-): StorySession | undefined {
-  const session = this.m_session;
-  if (!session) return undefined;
-  updater(session);
-  return session;
-}
-
-public clearStorySession() {
-  this.m_session = null;
-}
-
-  /** Clear session puzzle (e.g. when game ends) */
-  public clearPuzzle(): void {
+  /** Clear everything (session + puzzle) */
+  public reset(): void {
+    this.m_session = null;
     this.m_puzzle = null;
   }
 }
