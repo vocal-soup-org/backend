@@ -89,6 +89,9 @@ Now grade the answer strictly following the JSON format.
           .json({ error: "AI returned invalid result field" });
       }
 
+      // TODO: send the user's answer to Completion AI to evaluate
+      
+
       return res.json(parsed);
     } catch (err) {
       console.error("Error in /chat/evaluate:", err);

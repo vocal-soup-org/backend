@@ -10,17 +10,15 @@ export interface StorySession {
   id: string;
   // optional: tie to a logged-in user if you use auth
   userId?: string;
-  messages: StoryMessage[];
 }
 
 const storySessions = new Map<string, StorySession>();
 
 export function createStorySession(
   id: string,
-  messages: StoryMessage[],
   userId?: string
 ): StorySession {
-  const session: StorySession = { id, userId, messages };
+  const session: StorySession = { id, userId};
   storySessions.set(id, session);
   return session;
 }
