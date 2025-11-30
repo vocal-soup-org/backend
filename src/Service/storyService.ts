@@ -1,28 +1,19 @@
-import {Puzzle} from "../Schema/Puzzle"
-
-  // TODO: get Puzzle from DB
-export function getPuzzle(id: string): Puzzle | null {
-  return null;
-}
-
-export interface StorySession {
-  id: string;
-  userId?: string;
-  puzzleId: string;             // <- tie to exactly one puzzle
-}
-
-
+// StoryService.ts
+import { getPuzzleFromDB } from "./puzzleService";
+import { Puzzle } from "../Schema/Puzzle";
+import {
+  StorySession,
+  createStorySession,
+  getStorySession,
+  updateStorySession,
+  deleteStorySession,
+} from "../storySession";
 
 export class StoryService {
   private static _instance: StoryService | null = null;
 
-  // The single puzzle for this session
-  private m_puzzle: Puzzle | null = null;
-  private m_session: StorySession | null = null;
-
   private constructor() {}
 
-  // Singleton accessor
   public static getInstance(): StoryService {
     if (!this._instance) {
       this._instance = new StoryService();
@@ -30,78 +21,66 @@ export class StoryService {
     return this._instance;
   }
 
-  /** Initialize or replace the puzzle for this session */
-  public setPuzzle(puzzle: Puzzle): void {
-    this.m_puzzle = puzzle;
+  /** Create a new session that is tied to exactly one puzzle. */
+  public async startSession(params: {
+    sessionId: string;
+    puzzleId: string;
+    userId?: string;
+  }): Promise<StorySession> {
+    const { sessionId, puzzleId, userId } = params;
+
+    // ensure puzzle exists, throws if not
+    await this.requirePuzzle(puzzleId);
+
+    const session = await createStorySession({
+      id: sessionId,
+      puzzleId,
+      userId,
+    });
+
+    return session;
   }
 
-  /** Convenience: build and set the puzzle from raw fields */
-  public initPuzzle(data: {
-    id: string;
-    title: string;
-    content: string;
-    fullAnswer: string;
-    parts: string[];
-    hint: string;
-  }): void {
-    this.m_puzzle = { ...data };
-  }
-
-  private fetchPuzzleData(puzzleId: String): void {
-    // TODO: DB connection
-    // initializePuzzle();
-  }
-
-  /** Get the current puzzle (or null if not set yet) */
-  public getPuzzle(): Puzzle | null {
-    return this.m_puzzle;
-  }
-
-  /** Optional: throw if you expect a puzzle to always exist */
-  public requirePuzzle(): Puzzle {
-    if (!this.m_puzzle) {
-      throw new Error("SessionService: puzzle not initialized");
+  /** Get an existing session by id, or throw if missing */
+  public requireSession(sessionId: string): StorySession {
+    const session = getStorySession(sessionId);
+    if (!session) {
+      throw new Error(`StoryService: session '${sessionId}' not found`);
     }
-    return this.m_puzzle;
+    return session;
   }
 
-  
+  /** Get the puzzle that belongs to a session */
+  public async getPuzzleForSession(sessionId: string): Promise<Puzzle> {
+    const session = this.requireSession(sessionId);
+    return this.requirePuzzle(session.puzzleId);
+  }
 
-public createStorySession(params: {
-  id: string;
-  puzzleId: string;
-}): StorySession {
-  const { id, puzzleId } = params;
+  /** Low-level: ensure puzzle exists */
+  public async requirePuzzle(puzzleId: string): Promise<Puzzle> {
+    const puzzle = await getPuzzleFromDB(puzzleId);
+    if (!puzzle) {
+      throw new Error(`StoryService: puzzle '${puzzleId}' not found`);
+    }
+    return puzzle;
+  }
 
-  const session: StorySession = {
-    id,
-    puzzleId,
-  };
-  this.fetchPuzzleData(puzzleId);
-  return session;
-}
+  /** Update a session (e.g., add flags, timestamps, etc.) */
+  public updateSession(
+    sessionId: string,
+    updater: (session: StorySession) => StorySession | void
+  ): StorySession {
+    const updated = updateStorySession(sessionId, updater);
+    if (!updated) {
+      throw new Error(
+        `StoryService: cannot update, session '${sessionId}' not found`
+      );
+    }
+    return updated;
+  }
 
-
-public getStorySession(id: string): StorySession | null {
-  return this.m_session;
-}
-
-public updateStorySession(
-  id: string,
-  updater: (session: StorySession) => void
-): StorySession | undefined {
-  const session = this.m_session;
-  if (!session) return undefined;
-  updater(session);
-  return session;
-}
-
-public clearStorySession() {
-  this.m_session = null;
-}
-
-  /** Clear session puzzle (e.g. when game ends) */
-  public clearPuzzle(): void {
-    this.m_puzzle = null;
+  /** End/cleanup a session */
+  public endSession(sessionId: string): void {
+    deleteStorySession(sessionId);
   }
 }
