@@ -1,8 +1,11 @@
 // src/chatRoutes.ts
 import { Router } from "express";
 import { openai } from "./aiClient";
+import { getPuzzleFromDB } from "./Service/puzzleService";
+import { StoryService } from "./Service/storyService";
 
 export const chatRouter = Router();
+const storyService = StoryService.getInstance();
 
 type EvaluateRequestBody = {
   puzzleId: string;
@@ -21,10 +24,10 @@ type EvaluateResponseBody = {
 chatRouter.post(
   "/evaluate",
   async (req, res) => {
-    const { puzzleId, puzzlePrompt, answerKey, userAnswer } =
+    const { puzzleId, userAnswer } =
       req.body as EvaluateRequestBody;
-
-    if (!puzzleId || !puzzlePrompt || !answerKey || !userAnswer) {
+     const puzzle = await getPuzzleFromDB(puzzleId);
+    if (!puzzleId || !puzzle.title || !puzzle.fullAnswer || !userAnswer) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -48,10 +51,10 @@ Rules:
 const userPrompt = `
 
 汤面:
-${puzzlePrompt}
+${puzzle.content}
 
 汤底:
-${answerKey}
+${puzzle.fullAnswer}
 
 玩家的猜测:
 ${userAnswer}
@@ -88,6 +91,9 @@ Now grade the answer strictly following the JSON format.
           .status(500)
           .json({ error: "AI returned invalid result field" });
       }
+
+      // TODO: send the user's answer to Completion AI to evaluate
+      
 
       return res.json(parsed);
     } catch (err) {

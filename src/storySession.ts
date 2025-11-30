@@ -1,26 +1,35 @@
-// src/storySessions.ts
-export type StoryRole = "system" | "user" | "assistant";
-
-export interface StoryMessage {
-  role: StoryRole;
-  content: string;
-}
+// storySessions.ts
+import { Puzzle } from "./Schema/Puzzle";
+import { getPuzzleFromDB } from "./Service/puzzleService"; // DB-backed getPuzzle
 
 export interface StorySession {
   id: string;
-  // optional: tie to a logged-in user if you use auth
   userId?: string;
-  messages: StoryMessage[];
+  puzzleId: string;  // one puzzle per session
+  // you can add more fields later (e.g. story progress, timestamps)
 }
 
 const storySessions = new Map<string, StorySession>();
 
-export function createStorySession(
-  id: string,
-  messages: StoryMessage[],
-  userId?: string
-): StorySession {
-  const session: StorySession = { id, userId, messages };
+export async function createStorySession(params: {
+  id: string;
+  puzzleId: string;
+  userId?: string;
+}): Promise<StorySession> {
+  const { id, puzzleId, userId } = params;
+
+  // Optional: ensure the puzzle actually exists
+  const puzzle: Puzzle | null = await getPuzzleFromDB(puzzleId);
+  if (!puzzle) {
+    throw new Error(`StorySession: puzzle '${puzzleId}' not found`);
+  }
+
+  const session: StorySession = {
+    id,
+    userId,
+    puzzleId,
+  };
+
   storySessions.set(id, session);
   return session;
 }
@@ -31,12 +40,14 @@ export function getStorySession(id: string): StorySession | undefined {
 
 export function updateStorySession(
   id: string,
-  updater: (session: StorySession) => void
+  updater: (session: StorySession) => StorySession | void
 ): StorySession | undefined {
   const session = storySessions.get(id);
   if (!session) return undefined;
-  updater(session);
-  return session;
+
+  const result = updater(session) || session;
+  storySessions.set(id, result);
+  return result;
 }
 
 export function deleteStorySession(id: string) {
