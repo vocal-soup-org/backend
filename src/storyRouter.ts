@@ -11,16 +11,18 @@ type StartStoryResponseBody = {
   storySessionId: string;
 };
 
+const storyService = StoryService.getInstance();
 
 storyRouter.post("/start", async (req, res) => {
-  const { puzzleId } = req.body;
+  const { puzzleId, userId  } = req.body;
   const puzzleIdAsString = puzzleId.toString();
   try {
     const sessionId = randomUUID();
-    const chatService = ChatService.getInstance();
-    const storyService = StoryService.getInstance();
-    storyService.createStorySession( {id: sessionId, puzzleId: puzzleIdAsString} );
-    chatService.createChatSession( {id: sessionId, puzzleId: puzzleIdAsString} );
+    const session = await storyService.startSession({
+      sessionId,
+      puzzleId,
+      userId,
+    });
     const result: StartStoryResponseBody = {
       storySessionId: sessionId,
     };

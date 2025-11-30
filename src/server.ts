@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { requireUser, AuthedRequest } from "./authMiddleware";
 import { chatRouter } from "./chatRouter";
 import { storyRouter } from "./storyRouter";
+import { puzzleRouter } from "./puzzleRouter";
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.get("/me", requireUser, (req: AuthedRequest, res) => {
 
 app.use("/chat", chatRouter);
 app.use("/story", storyRouter);
+app.use("/puzzle", puzzleRouter);
 // Later: add your game routes here, all protected by requireUser
 
 app.listen(PORT, () => {

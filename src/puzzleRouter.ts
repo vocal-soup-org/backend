@@ -7,7 +7,7 @@ export const puzzleRouter = Router();
 
 
 puzzleRouter.post(
-  "/addPuzzle",
+  "/add",
   async (req, res) => {
     const { id, title, content, fullAnswer, parts, hint } =
       req.body as Puzzle;

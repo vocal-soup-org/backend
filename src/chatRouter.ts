@@ -1,9 +1,11 @@
 // src/chatRoutes.ts
 import { Router } from "express";
 import { openai } from "./aiClient";
-import { ChatService } from "./Service/chatService";
+import { getPuzzleFromDB } from "./Service/puzzleService";
+import { StoryService } from "./Service/storyService";
 
 export const chatRouter = Router();
+const storyService = StoryService.getInstance();
 
 type EvaluateRequestBody = {
   puzzleId: string;
@@ -24,9 +26,8 @@ chatRouter.post(
   async (req, res) => {
     const { puzzleId, userAnswer } =
       req.body as EvaluateRequestBody;
-    const chatService = ChatService.getInstance();
-    const puzzle = chatService.getPuzzle();
-    if (!puzzleId || !puzzlePrompt || !answerKey || !userAnswer) {
+     const puzzle = await getPuzzleFromDB(puzzleId);
+    if (!puzzleId || !puzzle.title || !puzzle.fullAnswer || !userAnswer) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -50,10 +51,10 @@ Rules:
 const userPrompt = `
 
 汤面:
-${puzzlePrompt}
+${puzzle.content}
 
 汤底:
-${answerKey}
+${puzzle.fullAnswer}
 
 玩家的猜测:
 ${userAnswer}
