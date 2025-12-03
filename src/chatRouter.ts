@@ -133,8 +133,14 @@ const upload = multer({ storage: storage });
 // --- Transcription Endpoint ---
 // Use the custom MulterRequest type here
 chatRouter.post('/transcribe', upload.single('audioFile'), async (req, res) => {
-
-  // Use optional chaining for safety, but req.file should be defined by Multer
+  const { puzzleID } = req.query;
+  // 2. Initialize a string variable
+  let puzzleIdString: string;
+  puzzleIdString = "";
+  if (typeof puzzleID === 'string') {
+      // Case 1: The most common case, it's a single string value.
+      puzzleIdString = puzzleID;
+  }
   const tempFilePath = req.file?.path;
   
   if (!tempFilePath) {
@@ -156,7 +162,7 @@ chatRouter.post('/transcribe', upload.single('audioFile'), async (req, res) => {
     });
 
     console.log('Transcription successful.');
-    const evaluation = await chatService.evaluateAnswer(transcript.text);
+    const evaluation = await chatService.evaluateAnswer(transcript.text, puzzleIdString);
     res.json({
       success: true,
       evaluation: evaluation

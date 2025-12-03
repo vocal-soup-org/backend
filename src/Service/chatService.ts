@@ -134,10 +134,10 @@ export class ChatService {
     this.m_puzzle = null;
   }
 
-  public async evaluateAnswer(userAnswer: string): Promise<string> {
-    const puzzleId = "silent_concert";
+  public async evaluateAnswer(userAnswer: string, puzzleId: string): Promise<string> {
     const puzzle: Puzzle = await getPuzzleFromDB(puzzleId);
         if (!puzzleId || !puzzle.title || !puzzle.fullAnswer || !userAnswer) {
+          console.error("Missing required fields for evaluation");
           return "";
         }
     
