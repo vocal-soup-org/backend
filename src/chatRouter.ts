@@ -156,7 +156,7 @@ chatRouter.post('/transcribe', upload.single('audioFile'), async (req, res) => {
     });
 
     console.log('Transcription successful.');
-    const evaluation = chatService.evaluateAnswer(transcript.text);    // 3. Return the transcribed text
+    const evaluation = await chatService.evaluateAnswer(transcript.text);
     res.json({
       success: true,
       evaluation: evaluation

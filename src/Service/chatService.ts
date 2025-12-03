@@ -134,11 +134,9 @@ export class ChatService {
     this.m_puzzle = null;
   }
 
-  public evaluateAnswer(userAnswer: string): string {
+  public async evaluateAnswer(userAnswer: string): Promise<string> {
     const puzzleId = "silentConcert";
-    
-        getPuzzleFromDB(puzzleId).then(async (puzzle: Puzzle) => {
-
+    const puzzle: Puzzle = await getPuzzleFromDB(puzzleId);
         if (!puzzleId || !puzzle.title || !puzzle.fullAnswer || !userAnswer) {
           return "";
         }
@@ -210,8 +208,5 @@ export class ChatService {
           console.error("Error in /chat/evaluate:", err);
           return "";
         }
-      });
-      return "";
-      
   }
 }
