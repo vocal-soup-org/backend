@@ -135,7 +135,7 @@ export class ChatService {
   }
 
   public async evaluateAnswer(userAnswer: string): Promise<string> {
-    const puzzleId = "silentConcert";
+    const puzzleId = "silent_concert";
     const puzzle: Puzzle = await getPuzzleFromDB(puzzleId);
         if (!puzzleId || !puzzle.title || !puzzle.fullAnswer || !userAnswer) {
           return "";
