@@ -15,10 +15,9 @@ const storyService = StoryService.getInstance();
 
 storyRouter.post("/start", async (req, res) => {
   const { puzzleId, userId  } = req.body;
-  const puzzleIdAsString = puzzleId.toString();
   try {
     const sessionId = randomUUID();
-    const session = await storyService.startSession({
+    await storyService.startSession({
       sessionId,
       puzzleId,
       userId,

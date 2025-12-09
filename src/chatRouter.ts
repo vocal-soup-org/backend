@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os'; // Needed for os.tmpdir()
 import { ChatService } from "./Service/chatService";
+import { getStorySession } from "./storySession";
 
 export const chatRouter = Router();
 const chatService = ChatService.getInstance();
@@ -133,14 +134,15 @@ const upload = multer({ storage: storage });
 // --- Transcription Endpoint ---
 // Use the custom MulterRequest type here
 chatRouter.post('/transcribe', upload.single('audioFile'), async (req, res) => {
-  const { puzzleID } = req.query;
+  const { sessionId } = req.query;
   // 2. Initialize a string variable
-  let puzzleIdString: string;
-  puzzleIdString = "";
-  if (typeof puzzleID === 'string') {
+  let sessionIdString: string;
+  sessionIdString = "";
+  if (typeof sessionId === 'string') {
       // Case 1: The most common case, it's a single string value.
-      puzzleIdString = puzzleID;
+      sessionIdString = sessionId;
   }
+  const puzzleIdString: string = getStorySession(sessionIdString)?.puzzleId ?? '';  
   const tempFilePath = req.file?.path;
   
   if (!tempFilePath) {
@@ -163,6 +165,12 @@ chatRouter.post('/transcribe', upload.single('audioFile'), async (req, res) => {
 
     console.log('Transcription successful.');
     const evaluation = await chatService.evaluateAnswer(transcript.text, puzzleIdString);
+
+    if (evaluation === "yes") {
+      // Send the text to see if it can contribute to solve part of the puzzle
+      // TODO:
+      // await chatService.recordSuccessfulClue(puzzleIdString, transcript.text);
+    }
     res.json({
       success: true,
       evaluation: evaluation
