@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os'; // Needed for os.tmpdir()
 import { ChatService } from "./Service/chatService";
-import { getStorySession } from "./storySession";
+import { getStorySession, getStorySessionCompletion } from "./storySession";
 
 export const chatRouter = Router();
 const chatService = ChatService.getInstance();
@@ -169,11 +169,14 @@ chatRouter.post('/transcribe', upload.single('audioFile'), async (req, res) => {
     if (evaluation === "yes") {
       // Send the text to see if it can contribute to solve part of the puzzle
       // TODO:
-      // await chatService.recordSuccessfulClue(puzzleIdString, transcript.text);
+      const ss = StoryService.getInstance();
+      await ss.recordSuccessfulClue(sessionIdString, transcript.text);
     }
+    const completion = await getStorySessionCompletion(sessionIdString);
     res.json({
       success: true,
-      evaluation: evaluation
+      evaluation: evaluation,
+      completion: completion,
     });
   } catch (error) {
     // Detailed error logging

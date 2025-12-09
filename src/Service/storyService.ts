@@ -1,12 +1,14 @@
 // StoryService.ts
 import { getPuzzleFromDB } from "./puzzleService";
 import { Puzzle } from "../Schema/Puzzle";
+import { openai } from "../aiClient";
 import {
   StorySession,
   createStorySession,
   getStorySession,
   updateStorySession,
   deleteStorySession,
+  completePartForSession
 } from "../storySession";
 
 export class StoryService {
@@ -83,4 +85,81 @@ export class StoryService {
   public endSession(sessionId: string): void {
     deleteStorySession(sessionId);
   }
+
+  public async recordSuccessfulClue(sessionId: string, answer: string): Promise<void> {
+    const session = this.requireSession(sessionId);
+    const puzzle = await this.requirePuzzle(session.puzzleId);
+
+    // use AI to evaluate if the answer solves any part
+    // Send AI the answer and the parts, return which parts are solved (indexes)
+    const solvedPartIndexes: number[] = await this.evaluateAnswerForParts(answer, puzzle.parts);
+    // Update session to mark these parts as completed
+    for (const partIndex of solvedPartIndexes) {
+      completePartForSession(sessionId, partIndex);
+    }
+  }
+
+
+  public async evaluateAnswerForParts(answer: string,parts: string[]): Promise<number[]> {
+
+  const systemPrompt = `
+You are an evaluator that checks whether a user's answer satisfies any parts of a puzzle solution.
+
+You will be given:
+1. The user's answer (a free-form natural language response)
+2. A list of puzzle solution parts. Each part represents a key idea required to solve the puzzle.
+
+Your task:
+- Compare the user's answer to EACH puzzle part.
+- A puzzle part is considered solved if the user's answer clearly expresses the same idea, even if wording differs.
+- Use semantic understanding, not just keyword matching.
+- DO NOT require exact phrasing.
+- DO NOT be overly strict; if the idea is present, count it.
+
+Output:
+- Respond ONLY with a JSON object in the following format:
+  
+  {
+    "solved": [<indexes of solved parts>]
+  }
+
+Where:
+- Indexes correspond to their position in the parts array (0-based).
+- If no parts are solved, return an empty array.
+
+No explanation. No additional commentary.
+`;
+
+const userPrompt = `
+
+User answer:
+"${answer}"
+
+Puzzle parts (indexed):
+${parts.map((p, i) => `${i}: ${p}`).join("\n")}
+`;
+
+  const aiResult = await openai.responses.create({
+    model: "gpt-4.1",
+    input: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+    temperature: 0.2,});
+
+  let parsed: { solved: number[] };
+  const text = aiResult.output_text;
+  try {
+    parsed = JSON.parse(text);
+  } catch (err) {
+    console.error("Failed to parse JSON from Chat AI:", text);
+    return [];
+  }
+
+  return parsed.solved ?? [];
+
+}
+
+
+  
 }
