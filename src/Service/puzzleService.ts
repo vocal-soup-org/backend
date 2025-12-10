@@ -24,6 +24,5 @@ export async function getPuzzleFromDB(puzzleId: string): Promise<Puzzle> {
     hint: data.hint
   };
 
-  console.log('Loaded Puzzle:', formattedPuzzle);
   return formattedPuzzle;
 }

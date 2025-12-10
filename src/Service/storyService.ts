@@ -95,6 +95,7 @@ export class StoryService {
     const solvedPartIndexes: number[] = await this.evaluateAnswerForParts(answer, puzzle.parts);
     // Update session to mark these parts as completed
     for (const partIndex of solvedPartIndexes) {
+      console.log(`Session ${sessionId}: marking part ${partIndex} as completed.`);
       completePartForSession(sessionId, partIndex);
     }
   }
@@ -149,6 +150,7 @@ ${parts.map((p, i) => `${i}: ${p}`).join("\n")}
 
   let parsed: { solved: number[] };
   const text = aiResult.output_text;
+  console.log("AI evaluation response:", text);
   try {
     parsed = JSON.parse(text);
   } catch (err) {
