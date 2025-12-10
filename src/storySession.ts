@@ -85,9 +85,12 @@ export async function getStorySessionCompletion(
   if (totalParts === 0) {
     return 0;
   }
+  console.log(`Session ${sessionId} has completed parts:`, session.completedPartIndexes);
 
   // Make sure we don't double-count if the same index was added twice
   const uniqueCompleted = new Set(session.completedPartIndexes).size;
+
+  console.log(`Session ${sessionId} completion: ${uniqueCompleted}/${totalParts}`);
 
   return uniqueCompleted / totalParts; // 0.0 – 1.0
 }
