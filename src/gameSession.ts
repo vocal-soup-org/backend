@@ -1,0 +1,101 @@
+// gameSession.ts
+// In-memory session storage for puzzle game sessions
+
+import { Puzzle } from "./Schema/Puzzle";
+import { getPuzzleFromDB } from "./Service/puzzleService";
+
+export interface GameSession {
+  id: string;
+  puzzleId: string;
+  userId?: string;
+  completedPartIndexes: number[];
+  createdAt: Date;
+}
+
+const gameSessions = new Map<string, GameSession>();
+
+export async function createGameSession(params: {
+  id: string;
+  puzzleId: string;
+  userId?: string;
+}): Promise<GameSession> {
+  const { id, puzzleId, userId } = params;
+
+  // Ensure the puzzle actually exists
+  const puzzle: Puzzle | null = await getPuzzleFromDB(puzzleId);
+  if (!puzzle) {
+    throw new Error(`GameSession: puzzle '${puzzleId}' not found`);
+  }
+
+  const session: GameSession = {
+    id,
+    userId,
+    puzzleId,
+    completedPartIndexes: [],
+    createdAt: new Date(),
+  };
+
+  gameSessions.set(id, session);
+  return session;
+}
+
+export function getGameSession(id: string): GameSession | undefined {
+  return gameSessions.get(id);
+}
+
+export function completePartForSession(
+  sessionId: string,
+  partIndex: number
+): void {
+  const session = gameSessions.get(sessionId);
+  if (!session) {
+    throw new Error(`GameSession '${sessionId}' not found`);
+  }
+  if (!session.completedPartIndexes.includes(partIndex)) {
+    session.completedPartIndexes.push(partIndex);
+  }
+}
+
+export function updateGameSession(
+  id: string,
+  updater: (session: GameSession) => GameSession | void
+): GameSession | undefined {
+  const session = gameSessions.get(id);
+  if (!session) return undefined;
+
+  const result = updater(session) || session;
+  gameSessions.set(id, result);
+  return result;
+}
+
+export async function getGameSessionCompletion(
+  sessionId: string
+): Promise<number> {
+  const session = gameSessions.get(sessionId);
+  if (!session) {
+    throw new Error(`GameSession '${sessionId}' not found`);
+  }
+
+  const puzzle: Puzzle | null = await getPuzzleFromDB(session.puzzleId);
+  if (!puzzle) {
+    throw new Error(`Puzzle '${session.puzzleId}' not found`);
+  }
+
+  const totalParts = puzzle.parts.length;
+  if (totalParts === 0) {
+    return 0;
+  }
+
+  console.log(`Session ${sessionId} has completed parts:`, session.completedPartIndexes);
+
+  // Ensure no double-counting
+  const uniqueCompleted = new Set(session.completedPartIndexes).size;
+
+  console.log(`Session ${sessionId} completion: ${uniqueCompleted}/${totalParts}`);
+
+  return uniqueCompleted / totalParts; // 0.0 – 1.0
+}
+
+export function deleteGameSession(id: string): void {
+  gameSessions.delete(id);
+}
