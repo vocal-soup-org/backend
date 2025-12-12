@@ -21,17 +21,16 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-// Protected route: needs valid Supabase token
 app.get("/me", requireUser, (req: AuthedRequest, res) => {
   const user = req.user;
+
   res.json({
     id: user.id,
     email: user.email,
-    // You can expose more Supabase user metadata if you want:
-    // app_metadata: user.app_metadata,
-    // user_metadata: user.user_metadata,
+    language: user.user_metadata?.language || "en", // default fallback
   });
 });
+
 
 app.use("/chat", chatRouter);
 app.use("/story", storyRouter);
