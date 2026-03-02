@@ -19,9 +19,10 @@ export async function getPuzzleFromDB(puzzleId: string): Promise<Puzzle> {
     id: data.id,
     title: data.title,
     content: data.content,
-    fullAnswer: data.full_answer, // Map back to camelCase
-    parts: data.parts,            // Comes back as a JS array automatically
-    hint: data.hint
+    fullAnswer: data.full_answer,                  // Map back to camelCase
+    parts: data.parts,                             // Comes back as a JS array automatically
+    hint: data.hint,
+    backgroundPicture: data.background_picture ?? undefined
   };
 
   return formattedPuzzle;

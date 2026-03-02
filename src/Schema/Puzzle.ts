@@ -5,4 +5,5 @@ export interface Puzzle {
   fullAnswer: string;      // Full correct explanation (for give-up or reveal)
   parts: string[];         // Array of key solution parts for scoring (AI uses these)
   hint: string;            // Optional hint shown to the user
+  backgroundPicture?: string; // Optional background image URL for the puzzle
 }

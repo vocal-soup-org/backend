@@ -9,7 +9,7 @@ export const puzzleRouter = Router();
 puzzleRouter.post(
   "/add",
   async (req, res) => {
-    const { id, title, content, fullAnswer, parts, hint } =
+    const { id, title, content, fullAnswer, parts, hint, backgroundPicture } =
       req.body as Puzzle;
 
     const { data, error } = await supabaseAdmin
@@ -19,9 +19,10 @@ puzzleRouter.post(
         id: id,
         title: title,
         content: content,
-        full_answer: fullAnswer, // Mapping JS -> DB
-        parts: parts,            // JS Array passes directly
-        hint: hint
+        full_answer: fullAnswer,              // Mapping JS -> DB
+        parts: parts,                         // JS Array passes directly
+        hint: hint,
+        background_picture: backgroundPicture // Optional, may be undefined
       }
     ])
     .select(); // Returns the inserted row
