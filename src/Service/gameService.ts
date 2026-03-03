@@ -43,6 +43,30 @@ export async function getAllGames(): Promise<Game[]> {
   return data.map(formatGame);
 }
 
+export async function updateGame(gameId: string, fields: Partial<Game>): Promise<Game> {
+  const updates: Record<string, any> = {};
+  if (fields.status !== undefined)           updates.status             = fields.status;
+  if (fields.level !== undefined)            updates.level              = fields.level;
+  if (fields.genre !== undefined)            updates.genre              = fields.genre;
+  if (fields.backgroundPicture !== undefined) updates.background_picture = fields.backgroundPicture;
+  if (fields.shortIntro !== undefined)       updates.short_intro        = fields.shortIntro;
+  if (fields.progress !== undefined)         updates.progress           = fields.progress;
+
+  const { data, error } = await supabaseAdmin
+    .from("games")
+    .update(updates)
+    .eq("id", gameId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating game:", error);
+    throw new Error(`gameService: failed to update game '${gameId}'`);
+  }
+
+  return formatGame(data);
+}
+
 export async function createGame(game: Game): Promise<Game> {
   const { data, error } = await supabaseAdmin
     .from("games")

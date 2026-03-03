@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 import { requireUser, AuthedRequest } from "./authMiddleware";
 import { chatRouter } from "./chatRouter";
 import { gameRouter } from "./gameRouter";
@@ -15,6 +16,7 @@ const PORT = process.env.PORT || 4000;
 // Middlewares
 app.use(cors());
 app.use(express.json());
+app.use("/assets", express.static(path.join(__dirname, "Assets")));
 
 // Public route: sanity check
 app.get("/health", (_req, res) => {

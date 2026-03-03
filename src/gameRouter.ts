@@ -5,7 +5,7 @@ import multer from "multer";
 import fs from "fs";
 import os from "os";
 import { startSession, recordSuccessfulAnswer } from "./Service/gameSessionService";
-import { getAllGames, getGameById, createGame } from "./Service/gameService";
+import { getAllGames, getGameById, createGame, updateGame } from "./Service/gameService";
 import { getPuzzleFromDB } from "./Service/puzzleService";
 import { evaluateAnswer } from "./Service/evaluationService";
 import { getGameSession, getGameSessionCompletion } from "./gameSession";
@@ -48,6 +48,19 @@ gameRouter.get("/:id", async (req, res) => {
   } catch (err) {
     console.error("Error in GET /v1/games/:id:", err);
     return res.status(404).json({ error: "Game not found" });
+  }
+});
+
+// PATCH /v1/games/:id
+// Updates specific fields of a game (e.g. backgroundPicture, status, progress)
+gameRouter.patch("/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const game = await updateGame(id, req.body);
+    return res.json(game);
+  } catch (err) {
+    console.error("Error in PATCH /v1/games/:id:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
