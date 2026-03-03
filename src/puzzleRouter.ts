@@ -2,8 +2,22 @@
 import { Router } from "express";
 import { Puzzle } from "./Schema/Puzzle";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { getPuzzleFromDB } from "./Service/puzzleService";
 
 export const puzzleRouter = Router();
+
+// GET /v1/puzzles/:id
+// Returns full puzzle content for the challenge screen
+puzzleRouter.get("/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const puzzle = await getPuzzleFromDB(id);
+    return res.json(puzzle);
+  } catch (err) {
+    console.error("Error in GET /v1/puzzles/:id:", err);
+    return res.status(404).json({ error: "Puzzle not found" });
+  }
+});
 
 
 puzzleRouter.post(

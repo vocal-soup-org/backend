@@ -32,10 +32,9 @@ app.get("/me", requireUser, (req: AuthedRequest, res) => {
 });
 
 
-app.use("/chat", chatRouter);
-app.use("/game", gameRouter);
-app.use("/puzzle", puzzleRouter);
-// Later: add your game routes here, all protected by requireUser
+app.use("/v1/chat", chatRouter);
+app.use("/v1/games", gameRouter);
+app.use("/v1/puzzles", puzzleRouter);
 
 app.listen(PORT, () => {
   console.log(`API running on http://localhost:${PORT}`);
