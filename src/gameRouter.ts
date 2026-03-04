@@ -67,7 +67,7 @@ gameRouter.patch("/:id", async (req, res) => {
 // POST /game/add
 // Creates a new game entry in the catalog
 gameRouter.post("/add", async (req, res) => {
-  const { id, status, level, genre, shortIntro, puzzleId, progress } =
+  const { id, status, level, genre, name, shortIntro, puzzleId, progress } =
     req.body as Game;
 
   if (!id || !status || !level || !genre || !shortIntro || !puzzleId) {
@@ -75,7 +75,7 @@ gameRouter.post("/add", async (req, res) => {
   }
 
   try {
-    const game = await createGame({ id, status, level, genre, shortIntro, puzzleId, progress });
+    const game = await createGame({ id, status, level, genre, name, shortIntro, puzzleId, progress });
     return res.status(201).json(game);
   } catch (err) {
     console.error("Error in /game/add:", err);
