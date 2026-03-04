@@ -22,7 +22,6 @@ export async function getPuzzleFromDB(puzzleId: string): Promise<Puzzle> {
     fullAnswer: data.full_answer,                  // Map back to camelCase
     parts: data.parts,                             // Comes back as a JS array automatically
     hint: data.hint,
-    backgroundPicture: data.background_picture ?? undefined
   };
 
   return formattedPuzzle;

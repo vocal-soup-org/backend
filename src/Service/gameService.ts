@@ -7,7 +7,6 @@ function formatGame(data: any): Game {
     status: data.status,
     level: data.level,
     genre: data.genre,
-    backgroundPicture: data.background_picture ?? undefined,
     shortIntro: data.short_intro,
     puzzleId: data.puzzle_id,
     progress: data.progress ?? 0,
@@ -48,7 +47,6 @@ export async function updateGame(gameId: string, fields: Partial<Game>): Promise
   if (fields.status !== undefined)           updates.status             = fields.status;
   if (fields.level !== undefined)            updates.level              = fields.level;
   if (fields.genre !== undefined)            updates.genre              = fields.genre;
-  if (fields.backgroundPicture !== undefined) updates.background_picture = fields.backgroundPicture;
   if (fields.shortIntro !== undefined)       updates.short_intro        = fields.shortIntro;
   if (fields.progress !== undefined)         updates.progress           = fields.progress;
 
@@ -76,7 +74,6 @@ export async function createGame(game: Game): Promise<Game> {
         status: game.status,
         level: game.level,
         genre: game.genre,
-        background_picture: game.backgroundPicture,
         short_intro: game.shortIntro,
         puzzle_id: game.puzzleId,
         progress: game.progress ?? 0,
