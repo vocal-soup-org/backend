@@ -6,6 +6,7 @@ import { getPuzzleFromDB } from "./Service/puzzleService";
 
 export interface GameSession {
   id: string;
+  gameId: string;
   puzzleId: string;
   userId?: string;
   completedPartIndexes: number[];
@@ -16,10 +17,11 @@ const gameSessions = new Map<string, GameSession>();
 
 export async function createGameSession(params: {
   id: string;
+  gameId: string;
   puzzleId: string;
   userId?: string;
 }): Promise<GameSession> {
-  const { id, puzzleId, userId } = params;
+  const { id, gameId, puzzleId, userId } = params;
 
   // Ensure the puzzle actually exists
   const puzzle: Puzzle | null = await getPuzzleFromDB(puzzleId);
@@ -29,6 +31,7 @@ export async function createGameSession(params: {
 
   const session: GameSession = {
     id,
+    gameId,
     userId,
     puzzleId,
     completedPartIndexes: [],

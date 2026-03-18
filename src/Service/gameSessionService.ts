@@ -18,10 +18,11 @@ import {
  */
 export async function startSession(params: {
   sessionId: string;
+  gameId: string;
   puzzleId: string;
   userId?: string;
 }): Promise<GameSession> {
-  const { sessionId, puzzleId, userId } = params;
+  const { sessionId, gameId, puzzleId, userId } = params;
 
   // Ensure puzzle exists (createGameSession also checks, but we want clear error)
   const puzzle = await getPuzzleFromDB(puzzleId);
@@ -31,6 +32,7 @@ export async function startSession(params: {
 
   return createGameSession({
     id: sessionId,
+    gameId,
     puzzleId,
     userId,
   });

@@ -97,7 +97,7 @@ gameRouter.post("/start", async (req, res) => {
   try {
     const game = await getGameById(gameId);
     const sessionId = randomUUID();
-    await startSession({ sessionId, puzzleId: game.puzzleId, userId });
+    await startSession({ sessionId, gameId, puzzleId: game.puzzleId, userId });
     return res.json({ sessionId });
   } catch (err) {
     console.error("Error in /game/start:", err);
@@ -132,6 +132,9 @@ gameRouter.post("/evaluate", async (req, res) => {
 
     if (evaluation === "yes") {
       await recordSuccessfulAnswer(sessionId, userAnswer);
+      const completion = await getGameSessionCompletion(sessionId);
+      await updateGame(session.gameId, { progress: Math.round(completion * 100) });
+      return res.json({ evaluation, completion });
     }
 
     const completion = await getGameSessionCompletion(sessionId);
@@ -182,6 +185,9 @@ gameRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
 
     if (evaluation === "yes") {
       await recordSuccessfulAnswer(sessionId, transcript.text);
+      const completion = await getGameSessionCompletion(sessionId);
+      await updateGame(session.gameId, { progress: Math.round(completion * 100) });
+      return res.json({ success: true, transcript: transcript.text, evaluation, completion });
     }
 
     const completion = await getGameSessionCompletion(sessionId);
