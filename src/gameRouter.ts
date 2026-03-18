@@ -126,6 +126,10 @@ gameRouter.post("/evaluate", async (req, res) => {
     }
 
     const evaluation = await evaluateAnswer(userAnswer, puzzle);
+    if (evaluation === null) {
+      return res.status(502).json({ error: "Evaluation service failed. Please try again." });
+    }
+
     if (evaluation === "yes") {
       await recordSuccessfulAnswer(sessionId, userAnswer);
     }
@@ -172,6 +176,10 @@ gameRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
     }
 
     const evaluation = await evaluateAnswer(transcript.text, puzzle);
+    if (evaluation === null) {
+      return res.status(502).json({ success: false, error: "Evaluation service failed. Please try again." });
+    }
+
     if (evaluation === "yes") {
       await recordSuccessfulAnswer(sessionId, transcript.text);
     }

@@ -64,7 +64,7 @@ Now grade the answer strictly following the JSON format.
       temperature: 0.2,
     });
 
-    const text = response.output_text;
+    const text = response.output_text.replace(/```json|```/g, "").trim();
     let parsed: EvaluateResponseBody;
 
     try {
@@ -93,22 +93,24 @@ Now grade the answer strictly following the JSON format.
  */
 export async function evaluateAnswerForParts(
   answer: string,
-  parts: string[]
+  parts: string[],
+  puzzleContent: string
 ): Promise<number[]> {
   if (!answer || parts.length === 0) {
     return [];
   }
 
   const systemPrompt = `
-You are an evaluator that checks whether a user's answer satisfies any parts of a puzzle solution.
+You are an evaluator for a lateral thinking puzzle game (海龟汤).
 
 You will be given:
-1. The user's answer (a free-form natural language response)
-2. A list of puzzle solution parts. Each part represents a key idea required to solve the puzzle.
+1. The puzzle scenario (汤面) — the surface story shown to players
+2. The user's answer/question
+3. A list of key solution parts. Each part represents a key idea required to fully solve the puzzle.
 
 Your task:
-- Compare the user's answer to EACH puzzle part.
-- A puzzle part is considered solved if the user's answer clearly expresses the same idea, even if wording differs.
+- Compare the user's answer to EACH solution part.
+- A part is considered solved if the user's answer clearly expresses the same idea, even if wording differs.
 - Use semantic understanding, not just keyword matching.
 - DO NOT require exact phrasing.
 - DO NOT be overly strict; if the idea is present, count it.
@@ -128,10 +130,13 @@ No explanation. No additional commentary.
 `;
 
   const userPrompt = `
+Puzzle scenario (汤面):
+${puzzleContent}
+
 User answer:
 "${answer}"
 
-Puzzle parts (indexed):
+Solution parts (indexed):
 ${parts.map((p, i) => `${i}: ${p}`).join("\n")}
 `;
 
@@ -145,7 +150,7 @@ ${parts.map((p, i) => `${i}: ${p}`).join("\n")}
       temperature: 0.2,
     });
 
-    const text = aiResult.output_text;
+    const text = aiResult.output_text.replace(/```json|```/g, "").trim();
     console.log("AI parts evaluation response:", text);
 
     let parsed: PartsEvaluationResponse;

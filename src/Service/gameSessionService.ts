@@ -70,7 +70,7 @@ export async function recordSuccessfulAnswer(
   const puzzle = await getPuzzleForSession(sessionId);
 
   // Use AI to evaluate which parts the answer solves
-  const solvedPartIndexes = await evaluateAnswerForParts(answer, puzzle.parts);
+  const solvedPartIndexes = await evaluateAnswerForParts(answer, puzzle.parts, puzzle.content);
 
   // Mark solved parts in the session
   for (const partIndex of solvedPartIndexes) {
