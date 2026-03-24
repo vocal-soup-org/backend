@@ -9,6 +9,7 @@ import { getAllGames, getGameById, createGame, updateGame } from "./Service/game
 import { getPuzzleFromDB } from "./Service/puzzleService";
 import { evaluateAnswer } from "./Service/evaluationService";
 import { generateHint } from "./Service/hintService";
+import { markGameCompleted, checkAndLevelUp } from "./Service/userService";
 import { getGameSession, getGameSessionCompletion } from "./gameSession";
 import { openai } from "./aiClient";
 import { Game } from "./Schema/Game";
@@ -167,11 +168,21 @@ gameRouter.post("/evaluate", async (req, res) => {
       await recordSuccessfulAnswer(sessionId, userAnswer);
       const completion = await getGameSessionCompletion(sessionId);
       await updateGame(session.gameId, { progress: Math.round(completion * 100) });
-      return res.json({ evaluation, completion });
+
+      let leveledUp = false;
+      let newLevel: number | undefined;
+      if (completion === 1 && session.userId) {
+        await markGameCompleted(session.userId, session.gameId);
+        const result = await checkAndLevelUp(session.userId);
+        leveledUp = result.leveledUp;
+        newLevel = result.profile.level;
+      }
+
+      return res.json({ evaluation, completion, leveledUp, newLevel });
     }
 
     const completion = await getGameSessionCompletion(sessionId);
-    return res.json({ evaluation, completion });
+    return res.json({ evaluation, completion, leveledUp: false });
   } catch (err) {
     console.error("Error in /game/evaluate:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -220,11 +231,21 @@ gameRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
       await recordSuccessfulAnswer(sessionId, transcript.text);
       const completion = await getGameSessionCompletion(sessionId);
       await updateGame(session.gameId, { progress: Math.round(completion * 100) });
-      return res.json({ success: true, transcript: transcript.text, evaluation, completion });
+
+      let leveledUp = false;
+      let newLevel: number | undefined;
+      if (completion === 1 && session.userId) {
+        await markGameCompleted(session.userId, session.gameId);
+        const result = await checkAndLevelUp(session.userId);
+        leveledUp = result.leveledUp;
+        newLevel = result.profile.level;
+      }
+
+      return res.json({ success: true, transcript: transcript.text, evaluation, completion, leveledUp, newLevel });
     }
 
     const completion = await getGameSessionCompletion(sessionId);
-    return res.json({ success: true, transcript: transcript.text, evaluation, completion });
+    return res.json({ success: true, transcript: transcript.text, evaluation, completion, leveledUp: false });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("Error in /game/transcribe:", message);

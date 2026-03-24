@@ -7,6 +7,7 @@ import { requireUser, AuthedRequest } from "./authMiddleware";
 import { chatRouter } from "./chatRouter";
 import { gameRouter } from "./gameRouter";
 import { puzzleRouter } from "./puzzleRouter";
+import { userRouter } from "./userRouter";
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.get("/me", requireUser, (req: AuthedRequest, res) => {
 app.use("/v1/chat", chatRouter);
 app.use("/v1/games", gameRouter);
 app.use("/v1/puzzles", puzzleRouter);
+app.use("/v1/users", userRouter);
 
 app.listen(PORT, () => {
   console.log(`API running on http://localhost:${PORT}`);
