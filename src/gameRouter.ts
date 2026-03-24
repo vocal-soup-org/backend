@@ -8,6 +8,7 @@ import { startSession, recordSuccessfulAnswer } from "./Service/gameSessionServi
 import { getAllGames, getGameById, createGame, updateGame } from "./Service/gameService";
 import { getPuzzleFromDB } from "./Service/puzzleService";
 import { evaluateAnswer } from "./Service/evaluationService";
+import { generateHint } from "./Service/hintService";
 import { getGameSession, getGameSessionCompletion } from "./gameSession";
 import { openai } from "./aiClient";
 import { Game } from "./Schema/Game";
@@ -101,6 +102,38 @@ gameRouter.post("/start", async (req, res) => {
     return res.json({ sessionId });
   } catch (err) {
     console.error("Error in /game/start:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /v1/games/hint
+// Generates a dynamic hint based on the player's current session progress
+gameRouter.post("/hint", async (req, res) => {
+  const { sessionId } = req.body as { sessionId: string };
+
+  if (!sessionId) {
+    return res.status(400).json({ error: "Missing sessionId" });
+  }
+
+  const session = getGameSession(sessionId);
+  if (!session) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+
+  try {
+    const puzzle = await getPuzzleFromDB(session.puzzleId);
+    if (!puzzle) {
+      return res.status(404).json({ error: "Puzzle not found" });
+    }
+
+    const hint = await generateHint(puzzle, session.completedPartIndexes);
+    if (hint === null) {
+      return res.status(502).json({ error: "Hint service failed. Please try again." });
+    }
+
+    return res.json({ hint });
+  } catch (err) {
+    console.error("Error in /game/hint:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
