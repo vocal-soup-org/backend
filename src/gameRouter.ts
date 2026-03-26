@@ -69,7 +69,7 @@ gameRouter.patch("/:id", async (req, res) => {
 // POST /game/add
 // Creates a new game entry in the catalog
 gameRouter.post("/add", async (req, res) => {
-  const { id, status, level, genre, name, shortIntro, puzzleId, progress } =
+  const { id, status, level, genre, name, shortIntro, puzzleId } =
     req.body as Game;
 
   if (!id || !status || !level || !genre || !shortIntro || !puzzleId) {
@@ -77,7 +77,7 @@ gameRouter.post("/add", async (req, res) => {
   }
 
   try {
-    const game = await createGame({ id, status, level, genre, name, shortIntro, puzzleId, progress });
+    const game = await createGame({ id, status, level, genre, name, shortIntro, puzzleId });
     return res.status(201).json(game);
   } catch (err) {
     console.error("Error in /game/add:", err);
@@ -167,7 +167,6 @@ gameRouter.post("/evaluate", async (req, res) => {
     if (evaluation === "yes") {
       await recordSuccessfulAnswer(sessionId, userAnswer);
       const completion = await getGameSessionCompletion(sessionId);
-      await updateGame(session.gameId, { progress: Math.round(completion * 100) });
 
       let leveledUp = false;
       let newLevel: number | undefined;
@@ -230,7 +229,6 @@ gameRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
     if (evaluation === "yes") {
       await recordSuccessfulAnswer(sessionId, transcript.text);
       const completion = await getGameSessionCompletion(sessionId);
-      await updateGame(session.gameId, { progress: Math.round(completion * 100) });
 
       let leveledUp = false;
       let newLevel: number | undefined;
