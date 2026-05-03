@@ -10,8 +10,9 @@ export const puzzleRouter = Router();
 // Returns full puzzle content for the challenge screen
 puzzleRouter.get("/:id", async (req, res) => {
   const { id } = req.params;
+  const language = (req.query.lang as string) || 'en';
   try {
-    const puzzle = await getPuzzleFromDB(id);
+    const puzzle = await getPuzzleFromDB(id, language);
     return res.json(puzzle);
   } catch (err) {
     console.error("Error in GET /v1/puzzles/:id:", err);
