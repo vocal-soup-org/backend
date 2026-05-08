@@ -9,6 +9,7 @@ export interface GameSession {
   gameId: string;
   puzzleId: string;
   userId?: string;
+  language: string;
   completedPartIndexes: number[];
   createdAt: Date;
 }
@@ -20,8 +21,9 @@ export async function createGameSession(params: {
   gameId: string;
   puzzleId: string;
   userId?: string;
+  language?: string;
 }): Promise<GameSession> {
-  const { id, gameId, puzzleId, userId } = params;
+  const { id, gameId, puzzleId, userId, language = 'en' } = params;
 
   // Ensure the puzzle actually exists
   const puzzle: Puzzle | null = await getPuzzleFromDB(puzzleId);
@@ -34,6 +36,7 @@ export async function createGameSession(params: {
     gameId,
     userId,
     puzzleId,
+    language,
     completedPartIndexes: [],
     createdAt: new Date(),
   };

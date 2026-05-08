@@ -90,7 +90,7 @@ gameRouter.post("/add", async (req, res) => {
 // POST /game/start
 // Starts a session for a game — looks up the game's linked puzzle automatically
 gameRouter.post("/start", async (req, res) => {
-  const { gameId, userId } = req.body as { gameId: string; userId?: string };
+  const { gameId, userId, language } = req.body as { gameId: string; userId?: string; language?: string };
 
   if (!gameId) {
     return res.status(400).json({ error: "Missing gameId" });
@@ -99,7 +99,7 @@ gameRouter.post("/start", async (req, res) => {
   try {
     const game = await getGameById(gameId);
     const sessionId = randomUUID();
-    await startSession({ sessionId, gameId, puzzleId: game.puzzleId, userId });
+    await startSession({ sessionId, gameId, puzzleId: game.puzzleId, userId, language });
     return res.json({ sessionId });
   } catch (err) {
     console.error("Error in /game/start:", err);
@@ -122,12 +122,12 @@ gameRouter.post("/hint", async (req, res) => {
   }
 
   try {
-    const puzzle = await getPuzzleFromDB(session.puzzleId);
+    const puzzle = await getPuzzleFromDB(session.puzzleId, session.language);
     if (!puzzle) {
       return res.status(404).json({ error: "Puzzle not found" });
     }
 
-    const hint = await generateHint(puzzle, session.completedPartIndexes);
+    const hint = await generateHint(puzzle, session.completedPartIndexes, session.language);
     if (hint === null) {
       return res.status(502).json({ error: "Hint service failed. Please try again." });
     }
@@ -154,7 +154,7 @@ gameRouter.post("/evaluate", async (req, res) => {
   }
 
   try {
-    const puzzle = await getPuzzleFromDB(session.puzzleId);
+    const puzzle = await getPuzzleFromDB(session.puzzleId, session.language);
     if (!puzzle) {
       return res.status(404).json({ error: "Puzzle not found" });
     }
@@ -216,7 +216,7 @@ gameRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
 
     console.log("Transcription:", transcript.text);
 
-    const puzzle = await getPuzzleFromDB(session.puzzleId);
+    const puzzle = await getPuzzleFromDB(session.puzzleId, session.language);
     if (!puzzle) {
       return res.status(404).json({ success: false, error: "Puzzle not found." });
     }

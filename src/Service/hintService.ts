@@ -7,7 +7,8 @@ import { Puzzle } from "../Schema/Puzzle";
  */
 export async function generateHint(
   puzzle: Puzzle,
-  completedPartIndexes: number[]
+  completedPartIndexes: number[],
+  language: string = 'en'
 ): Promise<string | null> {
   const solvedParts = puzzle.parts.filter((_, i) => completedPartIndexes.includes(i));
   const unsolvedParts = puzzle.parts.filter((_, i) => !completedPartIndexes.includes(i));
@@ -20,7 +21,7 @@ export async function generateHint(
   }
 
   const systemPrompt = `
-You are a game host for a lateral thinking puzzle game (海龟汤).
+You are a game host for a lateral thinking puzzle game.
 
 The player is stuck and has requested a hint. Your job is to give ONE helpful nudge without giving away the answer.
 
@@ -32,10 +33,11 @@ Rules:
 - If progress is high (> 70%), give a targeted nudge toward what remains.
 - Keep the hint to 1–2 sentences.
 - Respond with plain text only — no JSON, no formatting.
+- IMPORTANT: Respond in the same language as the puzzle. The puzzle language code is: ${language}
 `;
 
   const userPrompt = `
-Puzzle scenario shown to player (汤面):
+Puzzle scenario shown to player:
 ${puzzle.content}
 
 Player progress: ${Math.round(progress * 100)}%

@@ -14,19 +14,20 @@ export const chatRouter = Router();
 type EvaluateRequestBody = {
   puzzleId: string;
   userAnswer: string;
+  language?: string;
 };
 
 // POST /chat/evaluate
 // Evaluates a user's answer against a puzzle (no session required)
 chatRouter.post("/evaluate", async (req, res) => {
-  const { puzzleId, userAnswer } = req.body as EvaluateRequestBody;
+  const { puzzleId, userAnswer, language = 'en' } = req.body as EvaluateRequestBody;
 
   if (!puzzleId || !userAnswer) {
     return res.status(400).json({ error: "Missing puzzleId or userAnswer" });
   }
 
   try {
-    const puzzle = await getPuzzleFromDB(puzzleId);
+    const puzzle = await getPuzzleFromDB(puzzleId, language);
     if (!puzzle) {
       return res.status(404).json({ error: "Puzzle not found" });
     }
@@ -89,7 +90,7 @@ chatRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
     console.log("Transcription successful:", transcript.text);
 
     // Get the puzzle for evaluation
-    const puzzle = await getPuzzleFromDB(session.puzzleId);
+    const puzzle = await getPuzzleFromDB(session.puzzleId, session.language);
     if (!puzzle) {
       return res.status(404).json({ success: false, error: "Puzzle not found." });
     }

@@ -29,10 +29,9 @@ export async function evaluateAnswer(
 
   try {
     const systemPrompt = `
-现在我们要玩海龟汤，我会给你提供三个东西：
-1. 汤面
-2. 汤底
-3. 玩家的猜测
+You are an evaluator for a lateral thinking puzzle game.
+
+You will be given the puzzle scenario, the full answer, and the player's guess.
 
 Rules:
 - Respond ONLY with a JSON object.
@@ -40,16 +39,20 @@ Rules:
   {
     "result": "yes" | "no" | "not_sure" | "not_related"
   }
+- "yes": the player's guess correctly identifies or strongly implies the answer
+- "no": the player's guess is clearly wrong
+- "not_sure": the guess is partially correct or ambiguous
+- "not_related": the guess is off-topic or unrelated to the puzzle
 `;
 
     const userPrompt = `
-汤面:
+Puzzle scenario:
 ${puzzle.content}
 
-汤底:
+Full answer:
 ${puzzle.fullAnswer}
 
-玩家的猜测:
+Player's guess:
 ${userAnswer}
 
 Now grade the answer strictly following the JSON format.
@@ -101,10 +104,10 @@ export async function evaluateAnswerForParts(
   }
 
   const systemPrompt = `
-You are an evaluator for a lateral thinking puzzle game (海龟汤).
+You are an evaluator for a lateral thinking puzzle game.
 
 You will be given:
-1. The puzzle scenario (汤面) — the surface story shown to players
+1. The puzzle scenario — the surface story shown to players
 2. The user's answer/question
 3. A list of key solution parts. Each part represents a key idea required to fully solve the puzzle.
 
@@ -130,7 +133,7 @@ No explanation. No additional commentary.
 `;
 
   const userPrompt = `
-Puzzle scenario (汤面):
+Puzzle scenario:
 ${puzzleContent}
 
 User answer:

@@ -21,8 +21,9 @@ export async function startSession(params: {
   gameId: string;
   puzzleId: string;
   userId?: string;
+  language?: string;
 }): Promise<GameSession> {
-  const { sessionId, gameId, puzzleId, userId } = params;
+  const { sessionId, gameId, puzzleId, userId, language = 'en' } = params;
 
   // Ensure puzzle exists (createGameSession also checks, but we want clear error)
   const puzzle = await getPuzzleFromDB(puzzleId);
@@ -35,6 +36,7 @@ export async function startSession(params: {
     gameId,
     puzzleId,
     userId,
+    language,
   });
 }
 
@@ -54,7 +56,7 @@ export function requireSession(sessionId: string): GameSession {
  */
 export async function getPuzzleForSession(sessionId: string): Promise<Puzzle> {
   const session = requireSession(sessionId);
-  const puzzle = await getPuzzleFromDB(session.puzzleId);
+  const puzzle = await getPuzzleFromDB(session.puzzleId, session.language);
   if (!puzzle) {
     throw new Error(`GameSessionService: puzzle '${session.puzzleId}' not found`);
   }
