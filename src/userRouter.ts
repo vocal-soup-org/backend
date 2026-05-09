@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getOrCreateUserProfile, getGamesForUser } from "./Service/userService";
+import { getOrCreateUserProfile, getGamesForUser, updateUserLanguage } from "./Service/userService";
 
 export const userRouter = Router();
 
@@ -12,6 +12,25 @@ userRouter.get("/:userId", async (req, res) => {
     return res.json(profile);
   } catch (err) {
     console.error("Error in GET /v1/users/:userId:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PATCH /v1/users/:userId/language
+// Updates the user's preferred language
+userRouter.patch("/:userId/language", async (req, res) => {
+  const { userId } = req.params;
+  const { language } = req.body as { language?: string };
+
+  if (!language) {
+    return res.status(400).json({ error: "Missing language" });
+  }
+
+  try {
+    const profile = await updateUserLanguage(userId, language);
+    return res.json(profile);
+  } catch (err) {
+    console.error("Error in PATCH /v1/users/:userId/language:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });

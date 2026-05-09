@@ -5,6 +5,7 @@ export interface PuzzleTranslation {
   content?:     string;
   full_answer?: string;
   hint?:        string;
+  parts?:       string[];
 }
 
 export interface Puzzle {

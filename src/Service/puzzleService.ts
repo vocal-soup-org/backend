@@ -37,7 +37,7 @@ export async function getPuzzleFromDB(puzzleId: string, language: string = 'en')
     title:       translation?.title       || data.title,
     content:     translation?.content     || data.content,
     fullAnswer:  translation?.full_answer || data.full_answer,
-    parts,
+    parts:       translation?.parts       ?? parts,
     hint:        translation?.hint        || data.hint,
   };
 }

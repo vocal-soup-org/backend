@@ -7,6 +7,7 @@ import os from "os";
 import { startSession, recordSuccessfulAnswer } from "./Service/gameSessionService";
 import { getAllGames, getGameById, createGame, updateGame } from "./Service/gameService";
 import { getPuzzleFromDB } from "./Service/puzzleService";
+import { getOrCreateUserProfile, updateUserLanguage } from "./Service/userService";
 import { evaluateAnswer } from "./Service/evaluationService";
 import { generateHint } from "./Service/hintService";
 import { markGameCompleted, checkAndLevelUp } from "./Service/userService";
@@ -99,10 +100,30 @@ gameRouter.post("/start", async (req, res) => {
   try {
     const game = await getGameById(gameId);
     const sessionId = randomUUID();
-    await startSession({ sessionId, gameId, puzzleId: game.puzzleId, userId, language });
-    return res.json({ sessionId });
+
+    let resolvedLanguage = language;
+    if (userId) {
+      const profile = await getOrCreateUserProfile(userId);
+      if (resolvedLanguage) {
+        // Persist the language choice if it changed
+        if (resolvedLanguage !== profile.language) {
+          await updateUserLanguage(userId, resolvedLanguage);
+        }
+      } else {
+        // Fall back to what's stored for this user
+        resolvedLanguage = profile.language;
+      }
+    }
+
+    await startSession({ sessionId, gameId, puzzleId: game.puzzleId, userId, language: resolvedLanguage });
+    const puzzle = await getPuzzleFromDB(game.puzzleId, resolvedLanguage);
+    return res.json({ sessionId, puzzle });
   } catch (err) {
     console.error("Error in /game/start:", err);
+    const message = err instanceof Error ? err.message : "";
+    if (message.includes("not found")) {
+      return res.status(404).json({ error: `Game '${gameId}' not found` });
+    }
     return res.status(500).json({ error: "Internal server error" });
   }
 });

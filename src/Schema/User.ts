@@ -1,6 +1,7 @@
 export interface UserProfile {
   userId: string;
   level: number;   // Current level — unlocks games at this level and below
+  language: string;
 }
 
 export interface UserGameProgress {

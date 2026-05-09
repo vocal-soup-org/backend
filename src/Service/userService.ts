@@ -23,10 +23,25 @@ export async function getOrCreateUserProfile(userId: string): Promise<UserProfil
       throw new Error(`userService: failed to get profile for '${userId}'`);
     }
 
-    return { userId: existing.user_id, level: existing.level };
+    return { userId: existing.user_id, level: existing.level, language: existing.language ?? 'en' };
   }
 
-  return { userId: data.user_id, level: data.level };
+  return { userId: data.user_id, level: data.level, language: data.language ?? 'en' };
+}
+
+export async function updateUserLanguage(userId: string, language: string): Promise<UserProfile> {
+  const { data, error } = await supabaseAdmin
+    .from("user_profiles")
+    .update({ language })
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new Error(`userService: failed to update language for '${userId}'`);
+  }
+
+  return { userId: data.user_id, level: data.level, language: data.language };
 }
 
 /**
@@ -104,7 +119,7 @@ export async function checkAndLevelUp(
     throw new Error(`userService: failed to level up user '${userId}'`);
   }
 
-  const newProfile: UserProfile = { userId: updated.user_id, level: updated.level };
+  const newProfile: UserProfile = { userId: updated.user_id, level: updated.level, language: updated.language ?? 'en' };
   return { profile: newProfile, leveledUp: true };
 }
 
