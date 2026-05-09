@@ -4,6 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { requireUser, AuthedRequest } from "./authMiddleware";
+import { getOrCreateUserProfile } from "./Service/userService";
 import { chatRouter } from "./chatRouter";
 import { gameRouter } from "./gameRouter";
 import { puzzleRouter } from "./puzzleRouter";
@@ -24,14 +25,22 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-app.get("/me", requireUser, (req: AuthedRequest, res) => {
+app.get("/me", requireUser, async (req: AuthedRequest, res) => {
   const user = req.user;
 
-  res.json({
-    id: user.id,
-    email: user.email,
-    language: user.user_metadata?.language || "en", // default fallback
-  });
+  try {
+    // Bootstrap language from Auth metadata on first profile creation.
+    // ignoreDuplicates means this hint is ignored if the profile already exists.
+    const profile = await getOrCreateUserProfile(user.id, user.user_metadata?.language);
+    return res.json({
+      id: user.id,
+      email: user.email,
+      language: profile.language,
+    });
+  } catch (err) {
+    console.error("Error in GET /me:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 

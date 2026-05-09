@@ -4,6 +4,7 @@ import { openai } from "./aiClient";
 import { getPuzzleFromDB } from "./Service/puzzleService";
 import { evaluateAnswer } from "./Service/evaluationService";
 import { recordSuccessfulAnswer } from "./Service/gameSessionService";
+import { getOrCreateUserProfile } from "./Service/userService";
 import { getGameSession, getGameSessionCompletion } from "./gameSession";
 import multer from "multer";
 import fs from "fs";
@@ -15,19 +16,27 @@ type EvaluateRequestBody = {
   puzzleId: string;
   userAnswer: string;
   language?: string;
+  userId?: string;
 };
 
 // POST /chat/evaluate
 // Evaluates a user's answer against a puzzle (no session required)
 chatRouter.post("/evaluate", async (req, res) => {
-  const { puzzleId, userAnswer, language = 'en' } = req.body as EvaluateRequestBody;
+  const { puzzleId, userAnswer, language, userId } = req.body as EvaluateRequestBody;
 
   if (!puzzleId || !userAnswer) {
     return res.status(400).json({ error: "Missing puzzleId or userAnswer" });
   }
 
   try {
-    const puzzle = await getPuzzleFromDB(puzzleId, language);
+    let resolvedLanguage = language;
+    if (!resolvedLanguage && userId) {
+      const profile = await getOrCreateUserProfile(userId);
+      resolvedLanguage = profile.language;
+    }
+    resolvedLanguage = resolvedLanguage ?? 'en';
+
+    const puzzle = await getPuzzleFromDB(puzzleId, resolvedLanguage);
     if (!puzzle) {
       return res.status(404).json({ error: "Puzzle not found" });
     }

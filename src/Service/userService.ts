@@ -1,13 +1,15 @@
 import { supabaseAdmin } from "../supabaseAdmin";
-import { UserProfile, UserGameProgress } from "../Schema/User";
+import { UserProfile } from "../Schema/User";
 
 /**
  * Returns the user's profile. Creates one at level 1 if it doesn't exist yet.
  */
-export async function getOrCreateUserProfile(userId: string): Promise<UserProfile> {
+// languageHint is only used when creating a brand-new profile — it is ignored on conflict
+// so it never overwrites an explicitly saved language preference.
+export async function getOrCreateUserProfile(userId: string, languageHint?: string): Promise<UserProfile> {
   const { data, error } = await supabaseAdmin
     .from("user_profiles")
-    .upsert({ user_id: userId, level: 1 }, { onConflict: "user_id", ignoreDuplicates: true })
+    .upsert({ user_id: userId, level: 1, language: languageHint ?? 'en' }, { onConflict: "user_id", ignoreDuplicates: true })
     .select()
     .single();
 
