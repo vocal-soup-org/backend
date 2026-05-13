@@ -10,6 +10,7 @@ function formatGame(data: any): Game {
     name: data.name ?? undefined,
     shortIntro: data.short_intro,
     puzzleId: data.puzzle_id,
+    experience: data.experience ?? 0,
   };
 }
 
@@ -49,6 +50,7 @@ export async function updateGame(gameId: string, fields: Partial<Game>): Promise
   if (fields.genre !== undefined)      updates.genre       = fields.genre;
   if (fields.name !== undefined)       updates.name        = fields.name;
   if (fields.shortIntro !== undefined) updates.short_intro = fields.shortIntro;
+  if (fields.experience !== undefined) updates.experience  = fields.experience;
 
   const { data, error } = await supabaseAdmin
     .from("games")
@@ -77,6 +79,7 @@ export async function createGame(game: Game): Promise<Game> {
         name: game.name,
         short_intro: game.shortIntro,
         puzzle_id: game.puzzleId,
+        experience: game.experience ?? 0,
       },
     ])
     .select()

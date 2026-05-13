@@ -8,4 +8,5 @@ export interface Game {
   name?: string;                // Display name (nullable)
   shortIntro: string;           // Brief description shown in the game catalog
   puzzleId: string;             // Foreign key linking to a Puzzle
+  experience: number;           // XP awarded on completion
 }

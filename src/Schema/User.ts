@@ -1,6 +1,7 @@
 export interface UserProfile {
   userId: string;
-  level: number;   // Current level — unlocks games at this level and below
+  level: number;       // Current level — unlocks games at this level and below
+  experience: number;  // Total XP accumulated
   language: string;
 }
 

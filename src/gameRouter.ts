@@ -7,7 +7,7 @@ import os from "os";
 import { startSession, recordSuccessfulAnswer } from "./Service/gameSessionService";
 import { getAllGames, getGameById, createGame, updateGame } from "./Service/gameService";
 import { getPuzzleFromDB } from "./Service/puzzleService";
-import { getOrCreateUserProfile, updateUserLanguage, markGameCompleted, checkAndLevelUp } from "./Service/userService";
+import { getOrCreateUserProfile, updateUserLanguage, markGameCompleted, awardXpAndLevelUp } from "./Service/userService";
 import { evaluateAnswer } from "./Service/evaluationService";
 import { generateHint } from "./Service/hintService";
 import { getGameSession, getGameSessionCompletion } from "./gameSession";
@@ -77,7 +77,7 @@ gameRouter.post("/add", async (req, res) => {
   }
 
   try {
-    const game = await createGame({ id, status, level, genre, name, shortIntro, puzzleId });
+    const game = await createGame({ id, status, level, genre, name, shortIntro, puzzleId, experience: 0 });
     return res.status(201).json(game);
   } catch (err) {
     console.error("Error in /game/add:", err);
@@ -190,18 +190,20 @@ gameRouter.post("/evaluate", async (req, res) => {
 
       let leveledUp = false;
       let newLevel: number | undefined;
+      let xpGained = 0;
       if (completion === 1 && session.userId) {
         await markGameCompleted(session.userId, session.gameId);
-        const result = await checkAndLevelUp(session.userId);
+        const result = await awardXpAndLevelUp(session.userId, session.gameId);
         leveledUp = result.leveledUp;
         newLevel = result.profile.level;
+        xpGained = result.xpGained;
       }
 
-      return res.json({ evaluation, completion, leveledUp, newLevel });
+      return res.json({ evaluation, completion, leveledUp, newLevel, xpGained });
     }
 
     const completion = await getGameSessionCompletion(sessionId);
-    return res.json({ evaluation, completion, leveledUp: false });
+    return res.json({ evaluation, completion, leveledUp: false, xpGained: 0 });
   } catch (err) {
     console.error("Error in /game/evaluate:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -252,14 +254,16 @@ gameRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
 
       let leveledUp = false;
       let newLevel: number | undefined;
+      let xpGained = 0;
       if (completion === 1 && session.userId) {
         await markGameCompleted(session.userId, session.gameId);
-        const result = await checkAndLevelUp(session.userId);
+        const result = await awardXpAndLevelUp(session.userId, session.gameId);
         leveledUp = result.leveledUp;
         newLevel = result.profile.level;
+        xpGained = result.xpGained;
       }
 
-      return res.json({ success: true, transcript: transcript.text, evaluation, completion, leveledUp, newLevel });
+      return res.json({ success: true, transcript: transcript.text, evaluation, completion, leveledUp, newLevel, xpGained });
     }
 
     const completion = await getGameSessionCompletion(sessionId);

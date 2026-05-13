@@ -1,15 +1,29 @@
 import { supabaseAdmin } from "../supabaseAdmin";
 import { UserProfile } from "../Schema/User";
 
-/**
- * Returns the user's profile. Creates one at level 1 if it doesn't exist yet.
- */
+// Total XP required to reach each level (index = target level)
+const LEVEL_THRESHOLDS: Record<number, number> = {
+  2: 100,
+  3: 300,
+  4: 600,
+  5: 1000,
+};
+
+function mapProfile(data: any): UserProfile {
+  return {
+    userId: data.user_id,
+    level: data.level,
+    experience: data.experience ?? 0,
+    language: data.language ?? 'en',
+  };
+}
+
 // languageHint is only used when creating a brand-new profile — it is ignored on conflict
 // so it never overwrites an explicitly saved language preference.
 export async function getOrCreateUserProfile(userId: string, languageHint?: string): Promise<UserProfile> {
   const { data, error } = await supabaseAdmin
     .from("user_profiles")
-    .upsert({ user_id: userId, level: 1, language: languageHint ?? 'en' }, { onConflict: "user_id", ignoreDuplicates: true })
+    .upsert({ user_id: userId, level: 1, experience: 0, language: languageHint ?? 'en' }, { onConflict: "user_id", ignoreDuplicates: true })
     .select()
     .single();
 
@@ -25,10 +39,10 @@ export async function getOrCreateUserProfile(userId: string, languageHint?: stri
       throw new Error(`userService: failed to get profile for '${userId}'`);
     }
 
-    return { userId: existing.user_id, level: existing.level, language: existing.language ?? 'en' };
+    return mapProfile(existing);
   }
 
-  return { userId: data.user_id, level: data.level, language: data.language ?? 'en' };
+  return mapProfile(data);
 }
 
 export async function updateUserLanguage(userId: string, language: string): Promise<UserProfile> {
@@ -43,7 +57,7 @@ export async function updateUserLanguage(userId: string, language: string): Prom
     throw new Error(`userService: failed to update language for '${userId}'`);
   }
 
-  return { userId: data.user_id, level: data.level, language: data.language };
+  return mapProfile(data);
 }
 
 /**
@@ -67,62 +81,62 @@ export async function markGameCompleted(
 }
 
 /**
- * Checks if all games at the user's current level are completed.
- * If so, increments the user's level by 1.
- * Returns the updated profile and whether a level-up occurred.
+ * Awards XP for completing a game and levels up the user if they hit the next threshold.
+ * XP is only awarded once — if the game was already completed, xpGained will be 0.
+ * Returns the updated profile, whether a level-up occurred, and how much XP was gained.
  */
-export async function checkAndLevelUp(
-  userId: string
-): Promise<{ profile: UserProfile; leveledUp: boolean }> {
-  const profile = await getOrCreateUserProfile(userId);
-
-  // Get all games at the user's current level
-  const { data: gamesAtLevel, error: gamesError } = await supabaseAdmin
-    .from("games")
-    .select("id")
-    .eq("level", profile.level);
-
-  if (gamesError || !gamesAtLevel) {
-    throw new Error(`userService: failed to fetch games at level ${profile.level}`);
-  }
-
-  if (gamesAtLevel.length === 0) {
-    return { profile, leveledUp: false };
-  }
-
-  const gameIds = gamesAtLevel.map((g) => g.id);
-
-  // Check how many of those games the user has completed
-  const { data: completedGames, error: progressError } = await supabaseAdmin
+export async function awardXpAndLevelUp(
+  userId: string,
+  gameId: string
+): Promise<{ profile: UserProfile; leveledUp: boolean; xpGained: number }> {
+  // Check if the user already completed this game (no double XP)
+  const { data: existingProgress } = await supabaseAdmin
     .from("user_game_progress")
-    .select("game_id")
+    .select("completed")
     .eq("user_id", userId)
-    .eq("completed", true)
-    .in("game_id", gameIds);
+    .eq("game_id", gameId)
+    .single();
 
-  if (progressError) {
-    throw new Error(`userService: failed to fetch progress for '${userId}'`);
+  if (existingProgress?.completed) {
+    const profile = await getOrCreateUserProfile(userId);
+    return { profile, leveledUp: false, xpGained: 0 };
   }
 
-  const allDone = completedGames?.length === gamesAtLevel.length;
-  if (!allDone) {
-    return { profile, leveledUp: false };
+  // Look up how much XP this game awards
+  const { data: game, error: gameError } = await supabaseAdmin
+    .from("games")
+    .select("experience")
+    .eq("id", gameId)
+    .single();
+
+  if (gameError || !game) {
+    throw new Error(`userService: failed to fetch game '${gameId}'`);
   }
 
-  // All games at current level done — level up
-  const { data: updated, error: levelError } = await supabaseAdmin
+  const xpGained: number = game.experience ?? 0;
+  const profile = await getOrCreateUserProfile(userId);
+  const newXp = profile.experience + xpGained;
+
+  // Check if new total XP crosses one or more level thresholds
+  let newLevel = profile.level;
+  while (LEVEL_THRESHOLDS[newLevel + 1] !== undefined && newXp >= LEVEL_THRESHOLDS[newLevel + 1]) {
+    newLevel++;
+  }
+
+  const leveledUp = newLevel > profile.level;
+
+  const { data: updated, error: updateError } = await supabaseAdmin
     .from("user_profiles")
-    .update({ level: profile.level + 1 })
+    .update({ experience: newXp, level: newLevel })
     .eq("user_id", userId)
     .select()
     .single();
 
-  if (levelError || !updated) {
-    throw new Error(`userService: failed to level up user '${userId}'`);
+  if (updateError || !updated) {
+    throw new Error(`userService: failed to update XP for '${userId}'`);
   }
 
-  const newProfile: UserProfile = { userId: updated.user_id, level: updated.level, language: updated.language ?? 'en' };
-  return { profile: newProfile, leveledUp: true };
+  return { profile: mapProfile(updated), leveledUp, xpGained };
 }
 
 /**
