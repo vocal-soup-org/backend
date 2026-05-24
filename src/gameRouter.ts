@@ -100,10 +100,12 @@ gameRouter.post("/start", async (req, res) => {
     const game = await getGameById(gameId);
     const sessionId = randomUUID();
 
-    let resolvedLanguage = language;
+    let resolvedLanguage: string | undefined;
     if (userId) {
       const profile = await getOrCreateUserProfile(userId);
-      resolvedLanguage = resolvedLanguage ?? profile.language;
+      resolvedLanguage = profile.language;
+    } else {
+      resolvedLanguage = language;
     }
 
     await startSession({ sessionId, gameId, puzzleId: game.puzzleId, userId, language: resolvedLanguage });
