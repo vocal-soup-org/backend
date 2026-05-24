@@ -7,7 +7,7 @@ import os from "os";
 import { startSession, recordSuccessfulAnswer } from "./Service/gameSessionService";
 import { getAllGames, getGameById, createGame, updateGame } from "./Service/gameService";
 import { getPuzzleFromDB } from "./Service/puzzleService";
-import { getOrCreateUserProfile, updateUserLanguage, markGameCompleted, checkAndLevelUp, awardExperience } from "./Service/userService";
+import { getOrCreateUserProfile, markGameCompleted, checkAndLevelUp, awardExperience } from "./Service/userService";
 import { evaluateAnswer } from "./Service/evaluationService";
 import { generateHint } from "./Service/hintService";
 import { getGameSession, getGameSessionCompletion } from "./gameSession";
@@ -103,15 +103,7 @@ gameRouter.post("/start", async (req, res) => {
     let resolvedLanguage = language;
     if (userId) {
       const profile = await getOrCreateUserProfile(userId);
-      if (resolvedLanguage) {
-        // Persist the language choice if it changed
-        if (resolvedLanguage !== profile.language) {
-          await updateUserLanguage(userId, resolvedLanguage);
-        }
-      } else {
-        // Fall back to what's stored for this user
-        resolvedLanguage = profile.language;
-      }
+      resolvedLanguage = resolvedLanguage ?? profile.language;
     }
 
     await startSession({ sessionId, gameId, puzzleId: game.puzzleId, userId, language: resolvedLanguage });
