@@ -25,10 +25,10 @@ export async function getOrCreateUserProfile(userId: string, languageHint?: stri
       throw new Error(`userService: failed to get profile for '${userId}'`);
     }
 
-    return { userId: existing.user_id, level: existing.level, language: existing.language ?? 'en' };
+    return { userId: existing.user_id, level: existing.level, language: existing.language ?? 'en', experience: existing.experience ?? 0 };
   }
 
-  return { userId: data.user_id, level: data.level, language: data.language ?? 'en' };
+  return { userId: data.user_id, level: data.level, language: data.language ?? 'en', experience: data.experience ?? 0 };
 }
 
 export async function updateUserLanguage(userId: string, language: string): Promise<UserProfile> {
@@ -43,7 +43,7 @@ export async function updateUserLanguage(userId: string, language: string): Prom
     throw new Error(`userService: failed to update language for '${userId}'`);
   }
 
-  return { userId: data.user_id, level: data.level, language: data.language };
+  return { userId: data.user_id, level: data.level, language: data.language, experience: data.experience ?? 0 };
 }
 
 /**
@@ -121,7 +121,7 @@ export async function checkAndLevelUp(
     throw new Error(`userService: failed to level up user '${userId}'`);
   }
 
-  const newProfile: UserProfile = { userId: updated.user_id, level: updated.level, language: updated.language ?? 'en' };
+  const newProfile: UserProfile = { userId: updated.user_id, level: updated.level, language: updated.language ?? 'en', experience: updated.experience ?? 0 };
   return { profile: newProfile, leveledUp: true };
 }
 
@@ -156,4 +156,45 @@ export async function getGamesForUser(userId: string): Promise<
     locked: g.level > profile.level,
     completed: completedSet.has(g.id),
   }));
+}
+
+/**
+ * Awards XP from a completed game to the user's profile.
+ * Reads the game's `experience` value and increments the user's total.
+ * Returns the amount of XP awarded.
+ */
+export async function awardExperience(userId: string, gameId: string): Promise<number> {
+  const { data: game, error: gameError } = await supabaseAdmin
+    .from("games")
+    .select("experience")
+    .eq("id", gameId)
+    .single();
+
+  if (gameError || !game) {
+    throw new Error(`userService: failed to fetch experience for game '${gameId}'`);
+  }
+
+  const xpToAdd: number = game.experience ?? 0;
+  if (xpToAdd === 0) return 0;
+
+  const { data: profile, error: fetchError } = await supabaseAdmin
+    .from("user_profiles")
+    .select("experience")
+    .eq("user_id", userId)
+    .single();
+
+  if (fetchError || !profile) {
+    throw new Error(`userService: failed to fetch profile for XP update '${userId}'`);
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("user_profiles")
+    .update({ experience: (profile.experience ?? 0) + xpToAdd })
+    .eq("user_id", userId);
+
+  if (updateError) {
+    throw new Error(`userService: failed to award XP to '${userId}'`);
+  }
+
+  return xpToAdd;
 }
