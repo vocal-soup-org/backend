@@ -30,9 +30,10 @@ const upload = multer({ storage });
 
 // GET /v1/games
 // Returns the full game catalog (metadata only — no puzzle content)
-gameRouter.get("/", async (_req, res) => {
+gameRouter.get("/", async (req, res) => {
+  const lang = req.query.lang as string | undefined;
   try {
-    const games = await getAllGames();
+    const games = await getAllGames(lang);
     return res.json(games);
   } catch (err) {
     console.error("Error in GET /v1/games:", err);
@@ -100,12 +101,10 @@ gameRouter.post("/start", async (req, res) => {
     const game = await getGameById(gameId);
     const sessionId = randomUUID();
 
-    let resolvedLanguage: string | undefined;
+    let resolvedLanguage = language;
     if (userId) {
       const profile = await getOrCreateUserProfile(userId);
-      resolvedLanguage = profile.language;
-    } else {
-      resolvedLanguage = language;
+      resolvedLanguage = resolvedLanguage ?? profile.language;
     }
 
     await startSession({ sessionId, gameId, puzzleId: game.puzzleId, userId, language: resolvedLanguage });

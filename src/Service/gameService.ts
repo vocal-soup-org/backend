@@ -13,7 +13,7 @@ function formatGame(data: any): Game {
   };
 }
 
-export async function getGameById(gameId: string): Promise<Game> {
+export async function getGameById(gameId: string, language?: string): Promise<Game> {
   const { data, error } = await supabaseAdmin
     .from("games")
     .select("*")
@@ -25,10 +25,20 @@ export async function getGameById(gameId: string): Promise<Game> {
     throw new Error(`gameService: game '${gameId}' not found`);
   }
 
+  if (language && language !== 'en') {
+    const { data: t } = await supabaseAdmin
+      .from("game_translations")
+      .select("genre, short_intro")
+      .eq("game_id", gameId)
+      .eq("language", language)
+      .single();
+    return applyTranslation(formatGame(data), t, language);
+  }
+
   return formatGame(data);
 }
 
-export async function getAllGames(): Promise<Game[]> {
+export async function getAllGames(language?: string): Promise<Game[]> {
   const { data, error } = await supabaseAdmin
     .from("games")
     .select("*")
@@ -39,7 +49,31 @@ export async function getAllGames(): Promise<Game[]> {
     throw new Error("gameService: failed to fetch games");
   }
 
-  return data.map(formatGame);
+  if (!language || language === 'en') {
+    return data.map(formatGame);
+  }
+
+  const { data: translations } = await supabaseAdmin
+    .from("game_translations")
+    .select("game_id, genre, short_intro")
+    .eq("language", language)
+    .in("game_id", data.map((g: any) => g.id));
+
+  const byGameId = new Map((translations ?? []).map((t: any) => [t.game_id, t]));
+
+  return data.map((g: any) => applyTranslation(formatGame(g), byGameId.get(g.id), language));
+}
+
+function applyTranslation(game: Game, t: any, language: string): Game {
+  if (!t) return game;
+  if (language === 'zh') {
+    return {
+      ...game,
+      genreZh: t.genre ?? undefined,
+      shortIntroZh: t.short_intro ?? undefined,
+    };
+  }
+  return game;
 }
 
 export async function updateGame(gameId: string, fields: Partial<Game>): Promise<Game> {
