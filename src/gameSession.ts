@@ -10,6 +10,11 @@ export interface GameSession {
   puzzleId: string;
   userId?: string;
   language: string;
+  attemptNumber: number;
+  questionBudget: number;
+  questionsUsed: number;
+  startedAt: Date;
+  timeLimitSeconds: number;
   completedPartIndexes: number[];
   createdAt: Date;
 }
@@ -22,8 +27,22 @@ export async function createGameSession(params: {
   puzzleId: string;
   userId?: string;
   language?: string;
+  attemptNumber: number;
+  questionBudget: number;
+  timeLimitSeconds: number;
+  completedPartIndexes?: number[];
 }): Promise<GameSession> {
-  const { id, gameId, puzzleId, userId, language = 'en' } = params;
+  const {
+    id,
+    gameId,
+    puzzleId,
+    userId,
+    language = 'en',
+    attemptNumber,
+    questionBudget,
+    timeLimitSeconds,
+    completedPartIndexes = [],
+  } = params;
 
   // Ensure the puzzle actually exists
   const puzzle: Puzzle | null = await getPuzzleFromDB(puzzleId);
@@ -37,12 +56,44 @@ export async function createGameSession(params: {
     userId,
     puzzleId,
     language,
-    completedPartIndexes: [],
+    attemptNumber,
+    questionBudget,
+    questionsUsed: 0,
+    startedAt: new Date(),
+    timeLimitSeconds,
+    completedPartIndexes,
     createdAt: new Date(),
   };
 
   gameSessions.set(id, session);
   return session;
+}
+
+export function incrementQuestionCount(id: string): GameSession {
+  const session = gameSessions.get(id);
+  if (!session) {
+    throw new Error(`GameSession '${id}' not found`);
+  }
+
+  session.questionsUsed += 1;
+  gameSessions.set(id, session);
+  return session;
+}
+
+export function getQuestionsRemaining(session: GameSession): number {
+  return Math.max(0, session.questionBudget - session.questionsUsed);
+}
+
+export function getElapsedSeconds(session: GameSession): number {
+  return Math.floor((Date.now() - session.startedAt.getTime()) / 1000);
+}
+
+export function isSessionTimedOut(session: GameSession): boolean {
+  return getElapsedSeconds(session) > session.timeLimitSeconds;
+}
+
+export function isSessionBudgetExhausted(session: GameSession): boolean {
+  return session.questionsUsed >= session.questionBudget;
 }
 
 export function getGameSession(id: string): GameSession | undefined {

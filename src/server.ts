@@ -6,6 +6,7 @@ import path from "path";
 import { requireUser, AuthedRequest } from "./authMiddleware";
 import { getOrCreateUserProfile } from "./Service/userService";
 import { chatRouter } from "./chatRouter";
+import { coinRouter } from "./coinRouter";
 import { gameRouter } from "./gameRouter";
 import { puzzleRouter } from "./puzzleRouter";
 import { userRouter } from "./userRouter";
@@ -45,6 +46,7 @@ app.get("/me", requireUser, async (req: AuthedRequest, res) => {
 
 
 app.use("/v1/chat", chatRouter);
+app.use("/v1/coins", coinRouter);
 app.use("/v1/games", gameRouter);
 app.use("/v1/puzzles", puzzleRouter);
 app.use("/v1/users", userRouter);
