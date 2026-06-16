@@ -208,8 +208,12 @@ export async function getGamesForUser(userId: string): Promise<
  * Reads the game's `experience` value and increments the user's total.
  * Returns the amount of XP awarded.
  */
-export async function awardExperience(userId: string, gameId: string): Promise<number> {
-  const { data: game, error: gameError } = await supabaseAdmin
+export async function awardExperience(
+  userId: string,
+  gameId: string,
+  client = supabaseAdmin
+): Promise<number> {
+  const { data: game, error: gameError } = await client
     .from("games")
     .select("experience")
     .eq("id", gameId)
@@ -222,22 +226,13 @@ export async function awardExperience(userId: string, gameId: string): Promise<n
   const xpToAdd: number = game.experience ?? 0;
   if (xpToAdd === 0) return 0;
 
-  const { data: profile, error: fetchError } = await supabaseAdmin
-    .from("user_profiles")
-    .select("experience")
-    .eq("user_id", userId)
-    .single();
-
-  if (fetchError || !profile) {
-    throw new Error(`userService: failed to fetch profile for XP update '${userId}'`);
-  }
-
-  const { error: updateError } = await supabaseAdmin
-    .from("user_profiles")
-    .update({ experience: (profile.experience ?? 0) + xpToAdd })
-    .eq("user_id", userId);
+  const { error: updateError } = await client.rpc("increment_user_experience", {
+    p_user_id: userId,
+    p_delta: xpToAdd,
+  });
 
   if (updateError) {
+    console.error("Error awarding XP:", updateError);
     throw new Error(`userService: failed to award XP to '${userId}'`);
   }
 
