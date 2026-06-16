@@ -4,10 +4,17 @@ import { randomUUID } from "crypto";
 import multer from "multer";
 import fs from "fs";
 import os from "os";
-import { startSession, recordSuccessfulAnswer } from "./Service/gameSessionService";
+import {
+  endSession,
+  getSessionStatus,
+  recordQuestionUse,
+  recordSuccessfulAnswer,
+  SessionLimitError,
+  startSession,
+} from "./Service/gameSessionService";
 import { getAllGames, getGameById, createGame, updateGame } from "./Service/gameService";
 import { getPuzzleFromDB } from "./Service/puzzleService";
-import { getOrCreateUserProfile, completeGameAndAwardRewards } from "./Service/userService";
+import { getOrCreateUserProfile } from "./Service/userService";
 import { evaluateAnswer } from "./Service/evaluationService";
 import { generateHint } from "./Service/hintService";
 import { getGameSession, getGameSessionCompletion } from "./gameSession";
@@ -15,6 +22,25 @@ import { openai } from "./aiClient";
 import { Game } from "./Schema/Game";
 
 export const gameRouter = Router();
+
+async function handleSessionLimit(sessionId: string, err: unknown, success = false) {
+  if (!(err instanceof SessionLimitError)) {
+    return null;
+  }
+
+  const ended = await endSession(sessionId, err.reason);
+  return {
+    success,
+    error: err.message,
+    reason: err.reason,
+    sessionEnded: true,
+    ...ended,
+  };
+}
+
+function isSessionNotFound(err: unknown): boolean {
+  return err instanceof Error && /session '.+' not found|Session not found/i.test(err.message);
+}
 
 // Multer for temporary audio file storage
 const storage = multer.diskStorage({
@@ -107,9 +133,17 @@ gameRouter.post("/start", async (req, res) => {
       resolvedLanguage = resolvedLanguage ?? profile.language;
     }
 
-    await startSession({ sessionId, gameId, puzzleId: game.puzzleId, userId, language: resolvedLanguage });
+    const session = await startSession({ sessionId, gameId, puzzleId: game.puzzleId, userId, language: resolvedLanguage });
     const puzzle = await getPuzzleFromDB(game.puzzleId, resolvedLanguage);
-    return res.json({ sessionId, puzzle });
+    return res.json({
+      sessionId,
+      puzzle,
+      attemptNumber: session.attemptNumber,
+      questionBudget: session.questionBudget,
+      questionsRemaining: session.questionBudget,
+      timeLimitSeconds: session.timeLimitSeconds,
+      completedPartIndexes: session.completedPartIndexes,
+    });
   } catch (err) {
     console.error("Error in /game/start:", err);
     const message = err instanceof Error ? err.message : "";
@@ -129,12 +163,8 @@ gameRouter.post("/hint", async (req, res) => {
     return res.status(400).json({ error: "Missing sessionId" });
   }
 
-  const session = getGameSession(sessionId);
-  if (!session) {
-    return res.status(404).json({ error: "Session not found" });
-  }
-
   try {
+    const session = recordQuestionUse(sessionId);
     const puzzle = await getPuzzleFromDB(session.puzzleId, session.language);
     if (!puzzle) {
       return res.status(404).json({ error: "Puzzle not found" });
@@ -145,8 +175,22 @@ gameRouter.post("/hint", async (req, res) => {
       return res.status(502).json({ error: "Hint service failed. Please try again." });
     }
 
-    return res.json({ hint });
+    const status = getSessionStatus(session);
+    if (status.sessionEnded) {
+      const ended = await endSession(sessionId, status.timedOut ? "timeout" : "exhausted");
+      return res.json({ hint, sessionEnded: true, ...ended });
+    }
+
+    return res.json({ hint, ...status });
   } catch (err) {
+    const limitResponse = await handleSessionLimit(sessionId, err);
+    if (limitResponse) {
+      return res.json(limitResponse);
+    }
+    if (isSessionNotFound(err)) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+
     console.error("Error in /game/hint:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -161,12 +205,8 @@ gameRouter.post("/evaluate", async (req, res) => {
     return res.status(400).json({ error: "Missing sessionId or userAnswer" });
   }
 
-  const session = getGameSession(sessionId);
-  if (!session) {
-    return res.status(404).json({ error: "Session not found" });
-  }
-
   try {
+    const session = recordQuestionUse(sessionId);
     const puzzle = await getPuzzleFromDB(session.puzzleId, session.language);
     if (!puzzle) {
       return res.status(404).json({ error: "Puzzle not found" });
@@ -181,22 +221,37 @@ gameRouter.post("/evaluate", async (req, res) => {
       await recordSuccessfulAnswer(sessionId, userAnswer);
       const completion = await getGameSessionCompletion(sessionId);
 
-      let leveledUp = false;
-      let newLevel: number | undefined;
-      let xpAwarded: number | undefined;
-      if (completion === 1 && session.userId) {
-        const result = await completeGameAndAwardRewards(session.userId, session.gameId);
-        leveledUp = result.leveledUp;
-        newLevel = result.newLevel;
-        xpAwarded = result.xpAwarded;
+      if (completion === 1) {
+        const ended = await endSession(sessionId, "completed");
+        return res.json({ evaluation, sessionEnded: true, ...ended });
       }
 
-      return res.json({ evaluation, completion, leveledUp, newLevel, xpAwarded });
+      const status = getSessionStatus(session);
+      if (status.sessionEnded) {
+        const ended = await endSession(sessionId, status.timedOut ? "timeout" : "exhausted");
+        return res.json({ evaluation, sessionEnded: true, ...ended, leveledUp: false });
+      }
+
+      return res.json({ evaluation, completion, leveledUp: false, ...status });
     }
 
     const completion = await getGameSessionCompletion(sessionId);
-    return res.json({ evaluation, completion, leveledUp: false });
+    const status = getSessionStatus(session);
+    if (status.sessionEnded) {
+      const ended = await endSession(sessionId, status.timedOut ? "timeout" : "exhausted");
+      return res.json({ evaluation, sessionEnded: true, ...ended, leveledUp: false });
+    }
+
+    return res.json({ evaluation, completion, leveledUp: false, ...status });
   } catch (err) {
+    const limitResponse = await handleSessionLimit(sessionId, err);
+    if (limitResponse) {
+      return res.json(limitResponse);
+    }
+    if (isSessionNotFound(err)) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+
     console.error("Error in /game/evaluate:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -216,8 +271,7 @@ gameRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
     return res.status(400).json({ success: false, error: "Missing sessionId query parameter." });
   }
 
-  const session = getGameSession(sessionId);
-  if (!session) {
+  if (!getGameSession(sessionId)) {
     return res.status(404).json({ success: false, error: "Session not found." });
   }
 
@@ -230,6 +284,7 @@ gameRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
 
     console.log("Transcription:", transcript.text);
 
+    const session = recordQuestionUse(sessionId);
     const puzzle = await getPuzzleFromDB(session.puzzleId, session.language);
     if (!puzzle) {
       return res.status(404).json({ success: false, error: "Puzzle not found." });
@@ -244,22 +299,37 @@ gameRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
       await recordSuccessfulAnswer(sessionId, transcript.text);
       const completion = await getGameSessionCompletion(sessionId);
 
-      let leveledUp = false;
-      let newLevel: number | undefined;
-      let xpAwarded: number | undefined;
-      if (completion === 1 && session.userId) {
-        const result = await completeGameAndAwardRewards(session.userId, session.gameId);
-        leveledUp = result.leveledUp;
-        newLevel = result.newLevel;
-        xpAwarded = result.xpAwarded;
+      if (completion === 1) {
+        const ended = await endSession(sessionId, "completed");
+        return res.json({ success: true, transcript: transcript.text, evaluation, sessionEnded: true, ...ended });
       }
 
-      return res.json({ success: true, transcript: transcript.text, evaluation, completion, leveledUp, newLevel, xpAwarded });
+      const status = getSessionStatus(session);
+      if (status.sessionEnded) {
+        const ended = await endSession(sessionId, status.timedOut ? "timeout" : "exhausted");
+        return res.json({ success: true, transcript: transcript.text, evaluation, sessionEnded: true, ...ended, leveledUp: false });
+      }
+
+      return res.json({ success: true, transcript: transcript.text, evaluation, completion, leveledUp: false, ...status });
     }
 
     const completion = await getGameSessionCompletion(sessionId);
-    return res.json({ success: true, transcript: transcript.text, evaluation, completion, leveledUp: false });
+    const status = getSessionStatus(session);
+    if (status.sessionEnded) {
+      const ended = await endSession(sessionId, status.timedOut ? "timeout" : "exhausted");
+      return res.json({ success: true, transcript: transcript.text, evaluation, sessionEnded: true, ...ended, leveledUp: false });
+    }
+
+    return res.json({ success: true, transcript: transcript.text, evaluation, completion, leveledUp: false, ...status });
   } catch (err) {
+    const limitResponse = await handleSessionLimit(sessionId, err, true);
+    if (limitResponse) {
+      return res.json(limitResponse);
+    }
+    if (isSessionNotFound(err)) {
+      return res.status(404).json({ success: false, error: "Session not found." });
+    }
+
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("Error in /game/transcribe:", message);
     return res.status(500).json({ success: false, error: "Transcription failed.", details: message });

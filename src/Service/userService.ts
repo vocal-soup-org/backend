@@ -1,10 +1,17 @@
 import { supabaseAdmin } from "../supabaseAdmin";
-import { UserProfile } from "../Schema/User";
+import { UserGameProgress, UserProfile } from "../Schema/User";
 
 export interface CompletionRewardResult {
   leveledUp: boolean;
   newLevel: number;
   xpAwarded: number;
+}
+
+export class InsufficientCoinsError extends Error {
+  constructor() {
+    super("Insufficient coins");
+    this.name = "InsufficientCoinsError";
+  }
 }
 
 function isDuplicateProgressError(error: { code?: string; message?: string }): boolean {
@@ -35,10 +42,22 @@ export async function getOrCreateUserProfile(userId: string, languageHint?: stri
       throw new Error(`userService: failed to get profile for '${userId}'`);
     }
 
-    return { userId: existing.user_id, level: existing.level, language: existing.language ?? 'en', experience: existing.experience ?? 0 };
+    return {
+      userId: existing.user_id,
+      level: existing.level,
+      language: existing.language ?? 'en',
+      experience: existing.experience ?? 0,
+      coins: existing.coins ?? 0,
+    };
   }
 
-  return { userId: data.user_id, level: data.level, language: data.language ?? 'en', experience: data.experience ?? 0 };
+  return {
+    userId: data.user_id,
+    level: data.level,
+    language: data.language ?? 'en',
+    experience: data.experience ?? 0,
+    coins: data.coins ?? 0,
+  };
 }
 
 export async function updateUserLanguage(userId: string, language: string): Promise<UserProfile> {
@@ -53,7 +72,59 @@ export async function updateUserLanguage(userId: string, language: string): Prom
     throw new Error(`userService: failed to update language for '${userId}'`);
   }
 
-  return { userId: data.user_id, level: data.level, language: data.language, experience: data.experience ?? 0 };
+  return {
+    userId: data.user_id,
+    level: data.level,
+    language: data.language,
+    experience: data.experience ?? 0,
+    coins: data.coins ?? 0,
+  };
+}
+
+export async function awardCoins(userId: string, amount: number): Promise<number> {
+  if (amount <= 0) {
+    const profile = await getOrCreateUserProfile(userId);
+    return profile.coins;
+  }
+
+  const profile = await getOrCreateUserProfile(userId);
+  const newBalance = (profile.coins ?? 0) + amount;
+  const { error } = await supabaseAdmin
+    .from("user_profiles")
+    .update({ coins: newBalance })
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("Error awarding coins:", error);
+    throw new Error(`userService: failed to award coins to '${userId}'`);
+  }
+
+  return newBalance;
+}
+
+export async function spendCoins(userId: string, amount: number): Promise<number> {
+  if (amount <= 0) {
+    const profile = await getOrCreateUserProfile(userId);
+    return profile.coins;
+  }
+
+  const profile = await getOrCreateUserProfile(userId);
+  if ((profile.coins ?? 0) < amount) {
+    throw new InsufficientCoinsError();
+  }
+
+  const newBalance = profile.coins - amount;
+  const { error } = await supabaseAdmin
+    .from("user_profiles")
+    .update({ coins: newBalance })
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("Error spending coins:", error);
+    throw new Error(`userService: failed to spend coins for '${userId}'`);
+  }
+
+  return newBalance;
 }
 
 /**
@@ -166,8 +237,103 @@ export async function checkAndLevelUp(
     throw new Error(`userService: failed to level up user '${userId}'`);
   }
 
-  const newProfile: UserProfile = { userId: updated.user_id, level: updated.level, language: updated.language ?? 'en', experience: updated.experience ?? 0 };
+  const newProfile: UserProfile = {
+    userId: updated.user_id,
+    level: updated.level,
+    language: updated.language ?? 'en',
+    experience: updated.experience ?? 0,
+    coins: updated.coins ?? 0,
+  };
   return { profile: newProfile, leveledUp: true };
+}
+
+export async function getGameProgress(
+  userId: string,
+  gameId: string
+): Promise<UserGameProgress | null> {
+  const { data, error } = await supabaseAdmin
+    .from("user_game_progress")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("game_id", gameId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching game progress:", error);
+    throw new Error(`userService: failed to fetch game progress for '${userId}'`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    userId: data.user_id,
+    gameId: data.game_id,
+    completed: data.completed ?? false,
+    attemptsUsed: data.attempts_used ?? 0,
+    bestScore: data.best_score ?? 0,
+    bestCompletion: data.best_completion ?? 0,
+  };
+}
+
+export async function updateGameProgressStats(
+  userId: string,
+  gameId: string,
+  stats: {
+    attemptsUsed: number;
+    bestScore: number;
+    bestCompletion: number;
+    completed: boolean;
+  }
+): Promise<UserGameProgress> {
+  const current = await getGameProgress(userId, gameId);
+  const next = {
+    user_id: userId,
+    game_id: gameId,
+    completed: current?.completed || stats.completed,
+    attempts_used: Math.max(current?.attemptsUsed ?? 0, stats.attemptsUsed),
+    best_score: Math.max(current?.bestScore ?? 0, stats.bestScore),
+    best_completion: Math.max(current?.bestCompletion ?? 0, stats.bestCompletion),
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from("user_game_progress")
+    .upsert(next, { onConflict: "user_id,game_id" })
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error("Error updating game progress stats:", error);
+    throw new Error(`userService: failed to update game progress for '${userId}'`);
+  }
+
+  return {
+    userId: data.user_id,
+    gameId: data.game_id,
+    completed: data.completed ?? false,
+    attemptsUsed: data.attempts_used ?? 0,
+    bestScore: data.best_score ?? 0,
+    bestCompletion: data.best_completion ?? 0,
+  };
+}
+
+export async function resetGameAttempts(userId: string, gameId: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from("user_game_progress")
+    .upsert(
+      {
+        user_id: userId,
+        game_id: gameId,
+        attempts_used: 0,
+      },
+      { onConflict: "user_id,game_id" }
+    );
+
+  if (error) {
+    console.error("Error resetting game attempts:", error);
+    throw new Error(`userService: failed to reset attempts for '${userId}'`);
+  }
 }
 
 /**
