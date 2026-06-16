@@ -1,8 +1,7 @@
 import { supabaseAdmin } from "../supabaseAdmin";
 import { UserProfile } from "../Schema/User";
 
-interface CompletionRewardResult {
-  completionRecorded: boolean;
+export interface CompletionRewardResult {
   leveledUp: boolean;
   newLevel: number;
   xpAwarded: number;
@@ -63,9 +62,10 @@ export async function updateUserLanguage(userId: string, language: string): Prom
  */
 export async function markGameCompleted(
   userId: string,
-  gameId: string
+  gameId: string,
+  client = supabaseAdmin
 ): Promise<boolean> {
-  const { error: insertError } = await supabaseAdmin
+  const { error: insertError } = await client
     .from("user_game_progress")
     .insert({ user_id: userId, game_id: gameId, completed: true });
 
@@ -78,7 +78,7 @@ export async function markGameCompleted(
     throw new Error(`userService: failed to mark game '${gameId}' completed for '${userId}'`);
   }
 
-  const { data: existing, error: fetchError } = await supabaseAdmin
+  const { data: existing, error: fetchError } = await client
     .from("user_game_progress")
     .select("completed")
     .eq("user_id", userId)
@@ -86,6 +86,7 @@ export async function markGameCompleted(
     .single();
 
   if (fetchError || !existing) {
+    console.error("Error fetching game completion:", fetchError);
     throw new Error(`userService: failed to fetch completion for game '${gameId}' and user '${userId}'`);
   }
 
@@ -93,7 +94,7 @@ export async function markGameCompleted(
     return false;
   }
 
-  const { data: updated, error: updateError } = await supabaseAdmin
+  const { data: updated, error: updateError } = await client
     .from("user_game_progress")
     .update({ completed: true })
     .eq("user_id", userId)
@@ -103,6 +104,7 @@ export async function markGameCompleted(
     .maybeSingle();
 
   if (updateError) {
+    console.error("Error updating game progress:", updateError);
     throw new Error(`userService: failed to complete existing progress for game '${gameId}' and user '${userId}'`);
   }
 
@@ -250,11 +252,11 @@ export async function completeGameAndAwardRewards(
   gameId: string
 ): Promise<CompletionRewardResult> {
   const completionRecorded = await markGameCompleted(userId, gameId);
-  const profile = await getOrCreateUserProfile(userId);
 
   if (!completionRecorded) {
+    const profile = await getOrCreateUserProfile(userId);
+
     return {
-      completionRecorded: false,
       leveledUp: false,
       newLevel: profile.level,
       xpAwarded: 0,
@@ -265,7 +267,6 @@ export async function completeGameAndAwardRewards(
   const result = await checkAndLevelUp(userId);
 
   return {
-    completionRecorded: true,
     leveledUp: result.leveledUp,
     newLevel: result.profile.level,
     xpAwarded,
