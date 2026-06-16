@@ -1,6 +1,16 @@
 import { supabaseAdmin } from "../supabaseAdmin";
 import { UserProfile } from "../Schema/User";
 
+export interface CompletionRewardResult {
+  leveledUp: boolean;
+  newLevel: number;
+  xpAwarded: number;
+}
+
+function isDuplicateProgressError(error: { code?: string; message?: string }): boolean {
+  return error.code === "23505" || /duplicate key/i.test(error.message ?? "");
+}
+
 /**
  * Returns the user's profile. Creates one at level 1 if it doesn't exist yet.
  */
@@ -47,23 +57,58 @@ export async function updateUserLanguage(userId: string, language: string): Prom
 }
 
 /**
- * Marks a game as completed for a user. Does nothing if already marked.
+ * Marks a game as completed for a user.
+ * Returns true only when this call creates the user's first completion for the game.
  */
 export async function markGameCompleted(
   userId: string,
-  gameId: string
-): Promise<void> {
-  const { error } = await supabaseAdmin
+  gameId: string,
+  client = supabaseAdmin
+): Promise<boolean> {
+  const { error: insertError } = await client
     .from("user_game_progress")
-    .upsert(
-      { user_id: userId, game_id: gameId, completed: true },
-      { onConflict: "user_id,game_id" }
-    );
+    .insert({ user_id: userId, game_id: gameId, completed: true });
 
-  if (error) {
-    console.error("Error marking game completed:", error);
+  if (!insertError) {
+    return true;
+  }
+
+  if (!isDuplicateProgressError(insertError)) {
+    console.error("Error marking game completed:", insertError);
     throw new Error(`userService: failed to mark game '${gameId}' completed for '${userId}'`);
   }
+
+  const { data: existing, error: fetchError } = await client
+    .from("user_game_progress")
+    .select("completed")
+    .eq("user_id", userId)
+    .eq("game_id", gameId)
+    .single();
+
+  if (fetchError || !existing) {
+    console.error("Error fetching game completion:", fetchError);
+    throw new Error(`userService: failed to fetch completion for game '${gameId}' and user '${userId}'`);
+  }
+
+  if (existing.completed) {
+    return false;
+  }
+
+  const { data: updated, error: updateError } = await client
+    .from("user_game_progress")
+    .update({ completed: true })
+    .eq("user_id", userId)
+    .eq("game_id", gameId)
+    .eq("completed", false)
+    .select("completed")
+    .maybeSingle();
+
+  if (updateError) {
+    console.error("Error updating game progress:", updateError);
+    throw new Error(`userService: failed to complete existing progress for game '${gameId}' and user '${userId}'`);
+  }
+
+  return Boolean(updated);
 }
 
 /**
@@ -197,4 +242,33 @@ export async function awardExperience(userId: string, gameId: string): Promise<n
   }
 
   return xpToAdd;
+}
+
+/**
+ * Completes a game and grants rewards only when this is the user's first completion.
+ */
+export async function completeGameAndAwardRewards(
+  userId: string,
+  gameId: string
+): Promise<CompletionRewardResult> {
+  const completionRecorded = await markGameCompleted(userId, gameId);
+
+  if (!completionRecorded) {
+    const profile = await getOrCreateUserProfile(userId);
+
+    return {
+      leveledUp: false,
+      newLevel: profile.level,
+      xpAwarded: 0,
+    };
+  }
+
+  const xpAwarded = await awardExperience(userId, gameId);
+  const result = await checkAndLevelUp(userId);
+
+  return {
+    leveledUp: result.leveledUp,
+    newLevel: result.profile.level,
+    xpAwarded,
+  };
 }
