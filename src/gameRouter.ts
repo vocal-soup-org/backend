@@ -7,7 +7,7 @@ import os from "os";
 import { startSession, recordSuccessfulAnswer } from "./Service/gameSessionService";
 import { getAllGames, getGameById, createGame, updateGame } from "./Service/gameService";
 import { getPuzzleFromDB } from "./Service/puzzleService";
-import { getOrCreateUserProfile, markGameCompleted, checkAndLevelUp, awardExperience } from "./Service/userService";
+import { getOrCreateUserProfile, completeGameAndAwardRewards } from "./Service/userService";
 import { evaluateAnswer } from "./Service/evaluationService";
 import { generateHint } from "./Service/hintService";
 import { getGameSession, getGameSessionCompletion } from "./gameSession";
@@ -185,11 +185,10 @@ gameRouter.post("/evaluate", async (req, res) => {
       let newLevel: number | undefined;
       let xpAwarded: number | undefined;
       if (completion === 1 && session.userId) {
-        await markGameCompleted(session.userId, session.gameId);
-        xpAwarded = await awardExperience(session.userId, session.gameId);
-        const result = await checkAndLevelUp(session.userId);
+        const result = await completeGameAndAwardRewards(session.userId, session.gameId);
         leveledUp = result.leveledUp;
-        newLevel = result.profile.level;
+        newLevel = result.newLevel;
+        xpAwarded = result.xpAwarded;
       }
 
       return res.json({ evaluation, completion, leveledUp, newLevel, xpAwarded });
@@ -249,11 +248,10 @@ gameRouter.post("/transcribe", upload.single("audioFile"), async (req, res) => {
       let newLevel: number | undefined;
       let xpAwarded: number | undefined;
       if (completion === 1 && session.userId) {
-        await markGameCompleted(session.userId, session.gameId);
-        xpAwarded = await awardExperience(session.userId, session.gameId);
-        const result = await checkAndLevelUp(session.userId);
+        const result = await completeGameAndAwardRewards(session.userId, session.gameId);
         leveledUp = result.leveledUp;
-        newLevel = result.profile.level;
+        newLevel = result.newLevel;
+        xpAwarded = result.xpAwarded;
       }
 
       return res.json({ success: true, transcript: transcript.text, evaluation, completion, leveledUp, newLevel, xpAwarded });
